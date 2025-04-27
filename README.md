@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**Pathway-Kernel Deep Prediction for Genomic Selection**
+**Prior Knowledge Dual-Path CNN**
 
 </div>
 
@@ -16,6 +16,6 @@
 
 </div>
 
-PKDP (Pathway-Kernel Deep Prediction) is a dual-path convolutional neural network framework designed to enhance genomic selection (GS) by integrating genome-wide association study (GWAS) results with genome-wide minor-effect markers.
+PKDP (Prior Knowledge Dual-Path CNN) is a dual-path convolutional neural network framework designed to enhance genomic selection (GS) by integrating genome-wide association study (GWAS) results with genome-wide minor-effect markers.
 
-<p  align="center"><img src="https://github.com/user-attachments/assets/089f554e-3743-49a8-9672-61dda37afaa2" style="width: 50%; height: auto;">
+<p  align="center"><img src="https://github.com/user-attachments/assets/089f554e-3743-49a8-9672-61dda37afaa2" style="width: 70%; height: auto;">

@@ -162,7 +162,6 @@ class PKDP(nn.Module):
                     else:
                         log(WARNING, f"Invalid prior feature ID '{pid}' (index {idx} out of range [0, {self.seq_length-1}])")
                 else:
-                    # 尝试直接匹配
                     idx = name_to_idx.get(pid, -1)
                     if idx >= 0:
                         indices.append(idx)
@@ -208,7 +207,6 @@ class PKDP(nn.Module):
         else:
             prior_out = self.prior_path(x)
         
-        # 融合
         combined = torch.cat([general_out, prior_out], dim=1)
         fused = self.fusion(combined)
         

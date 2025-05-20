@@ -83,6 +83,7 @@ python ./PKDP/PKDP.py --mode train -h
 | `--prior_features_file`  | Path to a file with one prior feature ID per line | None        |
 | `--adjust_encoding`      | Adjust genotype encoding from {0,1,2} to {-1,0,1} | False      |
 
+
 #### Model Architecture Parameters
 | Parameter            | Description                                      | Default Value |
 |----------------------|--------------------------------------------------|---------------|
@@ -118,6 +119,15 @@ python ./PKDP/PKDP.py --mode predict -h
 | `--prior_features`       | Prior knowledge features (space-separated IDs)  | None          |
 | `--prior_features_file`  | Path to a file with one prior feature ID per line | None        |
 
+
+#### note
+- Input phenotype data format: see `./demo/demo_phenotypes.csv`
+- Input genotype data format: see `./demo/demo_genotypes.csv`
+- During model training, please pay close attention to adjusting the following hyperparameters, as they significantly impact model performance:
+    *   `--main_channels`: Number of channels in the main network.
+    *   `--prior_channels`: Number of channels in the prior knowledge network.
+    *   `--learning_rate`: Learning rate.
+    *   `--batch_size`: Batch size.
 
 ## Usage Examples
 

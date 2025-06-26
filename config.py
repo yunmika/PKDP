@@ -10,14 +10,12 @@ def get_train_parser():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
-    # 必选参数组
     required = parser.add_argument_group('Required Arguments')
     required.add_argument('--train_phe', type=str, required=True, help='Path to training phenotype CSV file')
     required.add_argument('--geno', type=str, required=True, help='Path to genotype CSV file')
     required.add_argument('--output_path', type=str, required=True, help='Directory to save model and results')
     required.add_argument('--prefix', type=str, default=None, help='Prefix for output files')
     
-    # 可选参数组
     optional = parser.add_argument_group('Optional Arguments')
     optional.add_argument('--test_phe', type=str, default=None, help='Path to testing phenotype CSV file')
     optional.add_argument('--pnum', type=str, default=None, help='Column index or name of phenotype to predict (default: first column)')
@@ -34,7 +32,6 @@ def get_train_parser():
     optional.add_argument('--prior_features_file', type=str, default=None, 
                           help='Path to a text file with one prior feature ID per line (overrides --prior_features if provided)')
     
-    # 添加PKDP模型相关参数
     model_group = parser.add_argument_group('Model Architecture')
     model_group.add_argument('--conv_kernel_size', type=int, nargs='+', default=[11], 
                             help='Kernel sizes for main convolution path (space-separated, e.g., 11 9 7)')

@@ -3,13 +3,10 @@
 <div align="center">
 <h1>Prior Knowledge Dual-Path CNN</h1>
 
-<p>Fuchuan Han<sup>1,3#</sup>, Ming Gao<sup>1,3#</sup>, Yunxiao Zhao<sup>1,3#</sup>, Changwei Bi<sup>2</sup>, Yang Yang<sup>1,3</sup>, Jiantao Zhang<sup>1,3</sup>, Yangdong Wang<sup>1,3*</sup> and Yicun Chen<sup>1,3*</sup></p>
-
-<p><sup>1</sup>State Key Laboratory of Tree Genetics and Breeding, Chinese Academy of Forestry, Beijing 100091, China<br>
-<sup>2</sup>State Key Laboratory of Tree Genetics and Breeding, Co-Innovation Center for Sustainable Forestry in Southern China, Key Laboratory of Tree Genetics and Biotechnology of Educational Department of China, Key Laboratory of Tree Genetics and Silvicultural Sciences of Jiangsu Province, Nanjing Forestry University, Nanjing 210037, China<br>
-<sup>3</sup>Research Institute of Subtropical Forestry, Chinese Academy of Forestry, Hangzhou 311400, China<br>
-<sup>#</sup>These authors contributed equally to this work and share co-ﬁrst authorship.<br>
-<sup>*</sup>To whom correspondence should be addressed.</p>
+<p><strong>Research from:</strong></p>
+<p>State Key Laboratory of Tree Genetics and Breeding, Chinese Academy of Forestry, Beijing 100091, China<br>
+Research Institute of Subtropical Forestry, Chinese Academy of Forestry, Hangzhou 311400, China<br>
+State Key Laboratory of Tree Genetics and Breeding, Nanjing Forestry University, Nanjing 210037, China</p>
 </div>
 
 ***

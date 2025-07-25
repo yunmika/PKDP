@@ -59,7 +59,7 @@ pip install -r requirements.txt
 ### Training
 
 ```sh
-python ./PKDP/PKDP.py --mode train -h
+python ./PKDP/PKDP.py train -h
 ```
 
 #### Required Parameters
@@ -87,15 +87,17 @@ python ./PKDP/PKDP.py --mode train -h
 | `--adjust_encoding`      | Adjust genotype encoding from {0,1,2} to {-1,0,1} | False      |
 
 
-#### Model Architecture Parameters
-| Parameter            | Description                                      | Default Value |
-|----------------------|--------------------------------------------------|---------------|
-| `--conv_kernel_size` | Kernel sizes for main convolution path          | [11]          |
-| `--prior_kernel_size`| Kernel sizes for prior path convolution         | [5]           |
-| `--main_channels`    | Number of channels in main convolution path     | [64, 32, 32]  |
-| `--prior_channels`   | Number of channels in prior knowledge path      | [16, 16, 32]  |
-| `--fc_units`         | Number of units in fully connected layers       | [128, 64]     |
-| `--dropout`          | Dropout probability for fully connected layers  | 0             |
+#### Usage
+
+```bash
+python PKDP.py --mode train \
+               --train_phe demo/train_phe.csv \
+               --geno demo/train_geno.csv \
+               --test_phe demo/test_phe.csv \
+               --output_path results/ \
+               --prior_features_file ./demo/prior_features.txt \
+               --main_channels 64 32 32 --prior_channels 16 32 32
+```
 
 ### Prediction
 
@@ -115,7 +117,7 @@ python ./PKDP/PKDP.py --mode predict -h
 | Parameter                | Description                                      | Default Value |
 |--------------------------|--------------------------------------------------|---------------|
 | `--test_phe`             | Path to the testing phenotype file (optional)   | None          |
-| `--pnum`                 | Phenotype column index or name                 | First column  |
+| `--pnum`                 | Phenotype column name                 | First column  |
 | `--prefix`               | Prefix for output files                         | Timestamp     |
 | `--device`               | Device to use (`cuda` or `cpu`)                 | cuda:0        |
 | `--adjust_encoding`      | Adjust genotype encoding from {0,1,2} to {-1,0,1} | False      |
@@ -123,7 +125,21 @@ python ./PKDP/PKDP.py --mode predict -h
 | `--prior_features_file`  | Path to a file with one prior feature ID per line | None        |
 
 
-#### note
+#### Usage
+
+```bash
+python PKDP.py --mode predict \
+               --geno demo/test_geno.csv \
+               --prior_features_file ./demo/prior_features.txt \
+               --model_path results/best_model.pth --output_path predictions/
+```
+
+#### Notes
+- When no prior features are provided, the model will only utilize the main convolutional path.
+- It is recommended to use the `--prior_features_file` parameter instead of the `--prior_features` parameter to specify prior features.
+- The `--pnum` parameter can be used to specify the phenotype column to predict.
+- During model training, samples with NA values in the phenotype will be automatically ignored, so there is no need to manually remove samples with NA values.
+- The order of SNPs in the prediction should match the order used during training.
 - Input phenotype data format: see `./demo/demo_phenotypes.csv`
 - Input genotype data format: see `./demo/demo_genotypes.csv`
 - During model training, please pay close attention to adjusting the following hyperparameters, as they significantly impact model performance:
@@ -132,27 +148,6 @@ python ./PKDP/PKDP.py --mode predict -h
     *   `--learning_rate`: Learning rate.
     *   `--batch_size`: Batch size.
 
-## Usage Examples
-
-### Training
-
-To train the model with cross-validation:
-
-```bash
-python PKDP.py --mode train --train_phe data/train_phe.csv --geno data/geno.csv \
-               --test_phe data/test_phe.csv --output_path results/ \
-               --prior_features "SNP1 SNP2 SNP3" --main_channels 64 32 32 --prior_channels 16 32 32
-```
-
-### Prediction
-
-To make predictions using a trained model with phenotype data for evaluation:
-
-
-```bash
-python PKDP.py --mode predict --geno data/new_samples.csv \
-               --model_path results/best_model.pth --output_path predictions/
-```
 
 
 ## Version

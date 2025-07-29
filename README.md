@@ -60,7 +60,7 @@ pip install -r requirements.txt
 ### Training
 
 ```sh
-python ./PKDP/PKDP.py train -h
+python ./PKDP.py train -h
 ```
 
 #### Required Parameters
@@ -90,7 +90,7 @@ python ./PKDP/PKDP.py train -h
 #### Usage
 
 ```bash
-python PKDP.py train \
+python ./PKDP.py train \
                --train_phe demo/train_phe.csv \
                --geno demo/train_geno.csv \
                --test_phe demo/test_phe.csv \
@@ -102,7 +102,7 @@ python PKDP.py train \
 ### Prediction
 
 ```sh
-python ./PKDP/PKDP.py -h
+python ./PKDP.py predict -h
 ```
 
 #### Required Parameters
@@ -127,7 +127,7 @@ python ./PKDP/PKDP.py -h
 #### Usage
 
 ```bash
-python PKDP.py predict \
+python ./PKDP.py predict \
                --geno demo/test_geno.csv \
                --prior_features_file ./demo/prior_features.txt \
                --model_path results/best_model.pth --output_path predictions/

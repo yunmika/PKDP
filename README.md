@@ -102,7 +102,7 @@ python PKDP.py train \
 ### Prediction
 
 ```sh
-python ./PKDP/PKDP.py --mode predict -h
+python ./PKDP/PKDP.py -h
 ```
 
 #### Required Parameters

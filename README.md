@@ -37,6 +37,7 @@ conda activate PKDP_env
 # Install PKDP
 git clone https://github.com/yunmika/PKDP.git
 cd ./PKDP
+chmod +x ./PKDP.py
 
 # Install dependencies
 pip install -r requirements.txt
@@ -65,7 +66,6 @@ python ./PKDP/PKDP.py train -h
 #### Required Parameters
 | Parameter         | Description                                      |
 |-------------------|--------------------------------------------------|
-| `--mode train`    | Specify training mode                           |
 | `--train_phe`     | Path to the training phenotype file             |
 | `--geno`          | Path to the genotype file                       |
 | `--output_path`   | Directory to save outputs                       |
@@ -90,7 +90,7 @@ python ./PKDP/PKDP.py train -h
 #### Usage
 
 ```bash
-python PKDP.py --mode train \
+python PKDP.py train \
                --train_phe demo/train_phe.csv \
                --geno demo/train_geno.csv \
                --test_phe demo/test_phe.csv \
@@ -108,7 +108,6 @@ python ./PKDP/PKDP.py --mode predict -h
 #### Required Parameters
 | Parameter         | Description                                      |
 |-------------------|--------------------------------------------------|
-| `--mode predict`  | Specify prediction mode                         |
 | `--geno`          | Path to the genotype file                       |
 | `--model_path`    | Path to the trained model file                  |
 | `--output_path`   | Directory to save outputs                       |
@@ -128,7 +127,7 @@ python ./PKDP/PKDP.py --mode predict -h
 #### Usage
 
 ```bash
-python PKDP.py --mode predict \
+python PKDP.py predict \
                --geno demo/test_geno.csv \
                --prior_features_file ./demo/prior_features.txt \
                --model_path results/best_model.pth --output_path predictions/

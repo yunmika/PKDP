@@ -62,33 +62,6 @@ def load_training_data(args):
 
         log(INFO, f"Training set: {X_train_data.shape[0]} samples, {X_train_data.shape[1]} features")
 
-        X_test_data = None
-        y_test_data = None
-
-        if args.test_phe:
-            test_phe = pd.read_csv(args.test_phe, header=0, index_col=0)
-            if phenotype_name not in test_phe.columns:
-                log(WARNING, f"Phenotype '{phenotype_name}' not found in test phenotype file. Using all samples.")
-                test_samples = test_phe.index.tolist()
-            else:
-                test_samples = test_phe.index[~test_phe[phenotype_name].isna()].tolist()
-
-            log(INFO, f"Found {len(test_samples)} non-NA testing samples")
-
-            if phenotype_name in test_phe.columns:
-                test_y = test_phe.loc[test_samples, phenotype_name]
-                test_X = geno.loc[test_samples]
-
-                if len(test_X) != len(test_samples):
-                    log(WARNING, f"Only {len(test_X)} of {len(test_samples)} testing samples found in genotype data")
-
-                X_test_data = test_X.reset_index(drop=True)
-                y_test_data = test_y.reset_index(drop=True)
-
-                log(INFO, f"Testing set: {X_test_data.shape[0]} samples, {X_test_data.shape[1]} features")
-        else:
-            log(INFO, "No test phenotype file provided. Model will be trained without validation.")
-        
         X_train = X_train_data.values.reshape(-1, 1, X_train_data.shape[1])
         y_train = y_train_data.values
         
@@ -98,21 +71,9 @@ def load_training_data(args):
         
         X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
         y_train_tensor = torch.tensor(y_train, dtype=torch.float32).view(-1, 1)
-        
-        X_test_tensor = None
-        y_test_tensor = None
-        
-        if X_test_data is not None and y_test_data is not None:
-            X_test = X_test_data.values.reshape(-1, 1, X_test_data.shape[1])
-            y_test = y_test_data.values
 
-            if hasattr(args, 'adjust_encoding') and args.adjust_encoding:
-                X_test = X_test - 1
-            
-            X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-            y_test_tensor = torch.tensor(y_test, dtype=torch.float32).view(-1, 1)
 
-        return X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor, feature_names, phenotype_name
+        return X_train_tensor, y_train_tensor, feature_names, phenotype_name
 
     except Exception as e:
         log(ERROR, f"Error loading training data: {str(e)}")
@@ -207,51 +168,6 @@ def visualize_training_progress(train_losses, test_losses, output_path, prefix):
     plt.savefig(os.path.join(output_path, f"{prefix}_loss_curve.png"), bbox_inches='tight')
     plt.close()
 
-def visualize_predictions(y_train, y_pred_train, y_test, y_pred_test, output_path, prefix):
-    plot_combined(y_pred_train.flatten(), y_train.flatten(), 
-                 pearsonr(y_train.flatten(), y_pred_train.flatten())[0]**2,
-                 "Training Set Predictions", 
-                 os.path.join(output_path, f"{prefix}_train_combined.png"))
-
-    plot_combined(y_pred_test.flatten(), y_test.flatten(), 
-                 pearsonr(y_test.flatten(), y_pred_test.flatten())[0]**2,
-                 "Testing Set Predictions", 
-                 os.path.join(output_path, f"{prefix}_test_combined.png"))
-
-    fig = plt.figure(figsize=(10, 8), dpi=300)
-    
-    plt.scatter(y_train.flatten(), y_pred_train.flatten(), 
-               alpha=0.6, color='#66C2A5', label='Training Set', s=30)
-    plt.scatter(y_test.flatten(), y_pred_test.flatten(), 
-               alpha=0.6, color='#FC8D62', label='Testing Set', s=30)
-    
-    min_val = min(y_train.min(), y_test.min(), y_pred_train.min(), y_pred_test.min())
-    max_val = max(y_train.max(), y_test.max(), y_pred_train.max(), y_pred_test.max())
-    
-    plt.plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.7, label='1:1 Line')
-
-    train_pcc, _ = pearsonr(y_train.flatten(), y_pred_train.flatten())
-    test_pcc, _ = pearsonr(y_test.flatten(), y_pred_test.flatten())
-    train_r2 = train_pcc**2
-    test_r2 = test_pcc**2
-    
-    plt.text(0.05, 0.95, f'Training PCC: {train_pcc:.3f}\nTraining R²: {train_r2:.3f}',
-             transform=plt.gca().transAxes, ha='left', va='top', fontsize=10,
-             bbox=dict(facecolor='white', alpha=0.8), color='#2D6A59')
-    
-    plt.text(0.05, 0.85, f'Testing PCC: {test_pcc:.3f}\nTesting R²: {test_r2:.3f}',
-             transform=plt.gca().transAxes, ha='left', va='top', fontsize=10,
-             bbox=dict(facecolor='white', alpha=0.8), color='#C84A31')
-    
-    plt.xlabel('Observed Values', fontsize=12)
-    plt.ylabel('Predicted Values', fontsize=12)
-    plt.title('Combined Prediction Results', fontsize=14, fontweight='bold')
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10)
-    
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_path, f"{prefix}_combined_scatter.png"), bbox_inches='tight')
-    plt.close()
 
 class EarlyStopping:
     def __init__(self, patience=10, min_delta=0):
@@ -312,32 +228,19 @@ def optimize_hyperparameters(trial, x_train, y_train, inner_cv, device, opts, fe
         best_val_loss = min(best_val_loss, val_loss)
     return best_val_loss
 
-def train_with_cv(opts, X_train, y_train, X_test, y_test, device, feature_names):
+
+def run_train(opts, X_train, y_train, device, feature_names):
     time_start = time.time()
     prefix = get_output_prefix(opts)
-    outer_cv = KFold(n_splits=5, shuffle=True, random_state=opts.seed if opts.seed is not None else None)
-    inner_cv = KFold(n_splits=5, shuffle=True, random_state=opts.seed if opts.seed is not None else None)
 
-    global_best_model = None
-    global_best_corr = -float('inf')
-    global_best_train_corr = -float('inf')
-    global_best_loss = float('inf')
-    w_val, w_train = 0.7, 0.3
+    sampler = TPESampler(seed=opts.seed)
+    study = optuna.create_study(direction='minimize', sampler=sampler)
 
-    for fold, (train_idx, val_idx) in enumerate(outer_cv.split(X_train.numpy())):
-        log(INFO, f"Starting fold {fold + 1}/{outer_cv.n_splits}")
-        x_train_fold, x_val_fold = X_train[train_idx], X_train[val_idx]
-        y_train_fold, y_val_fold = y_train[train_idx], y_train[val_idx]
-
-        sampler = TPESampler(seed=opts.seed)
-        study = optuna.create_study(direction='minimize', sampler=sampler)
-        objective_with_data = functools.partial(optimize_hyperparameters, x_train=x_train_fold, y_train=y_train_fold, 
-                                                inner_cv=inner_cv, device=device, opts=opts, feature_names=feature_names)
-        study.optimize(objective_with_data, n_trials=opts.optuna_trials, show_progress_bar=True)
-        best_params = study.best_params
+    def tune_hyperparameters(trial):
+        learning_rate = trial.suggest_float('lr', 1e-5, 1e-2, log=True)
 
         model = create_model(
-            input_length=x_train_fold.shape[2], 
+            input_length=X_train.shape[2], 
             out_channels1=opts.main_channels[0] if hasattr(opts, 'main_channels') and opts.main_channels else None,
             out_channels2=opts.main_channels[1] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 1 else None,
             out_channels3=opts.main_channels[2] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 2 else None,
@@ -350,130 +253,6 @@ def train_with_cv(opts, X_train, y_train, X_test, y_test, device, feature_names)
             prior_kernel_size=opts.prior_kernel_size if hasattr(opts, 'prior_kernel_size') else None,
             dropout_prob=opts.dropout if hasattr(opts, 'dropout') else None,
             prior_features=opts.prior_features, 
-            feature_names=feature_names
-        ).to(device)
-
-        optimizer = create_optimizer(model, best_params['lr'], opts.optimizer)
-        loss_fn = create_loss_function()
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
-        train_loader = DataLoader(TensorDataset(x_train_fold, y_train_fold), batch_size=opts.batch_size, shuffle=True)
-        val_loader = DataLoader(TensorDataset(x_val_fold, y_val_fold), batch_size=opts.batch_size, shuffle=False)
-
-        early_stopping = EarlyStopping(patience=10) if opts.early_stop else None
-        best_corr = -float('inf')
-        best_train_corr = -float('inf')
-        best_loss = float('inf')
-        best_state_dict = None
-        train_losses, val_losses = [], []
-
-        for epoch in range(opts.epochs):
-            train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)
-            val_loss = evaluate_epoch(model, val_loader, loss_fn, device)
-
-            with torch.no_grad():
-                y_train_pred = model(x_train_fold.to(device)).cpu().numpy()
-                y_val_pred = model(x_val_fold.to(device)).cpu().numpy()
-                train_corr = compute_pearson_correlation(y_train_fold.numpy(), y_train_pred)
-                val_corr = compute_pearson_correlation(y_val_fold.numpy(), y_val_pred)
-                y_test_pred = model(X_test.to(device)).cpu().numpy()
-                test_corr = compute_pearson_correlation(y_test.numpy(), y_test_pred)
-
-            train_losses.append(train_loss)
-            val_losses.append(val_loss)
-
-            final_score = w_val * val_corr + w_train * train_corr
-            if final_score > (w_val * best_corr + w_train * best_train_corr):
-                best_corr = val_corr
-                best_train_corr = train_corr
-                best_loss = val_loss
-                best_state_dict = model.state_dict()
-
-            scheduler.step(val_loss)
-            if early_stopping:
-                early_stopping(val_loss)
-                if early_stopping.stop:
-                    log(INFO, f"Early stopping at epoch {epoch + 1}")
-                    break
-
-            log(INFO, f"Fold {fold + 1}, Epoch {epoch + 1}: Train Corr={train_corr:.4f}, Train Loss={train_loss:.4f}, "
-                      f"Val Corr={val_corr:.4f}, Val Loss={val_loss:.4f}, Test Corr={test_corr:.4f}, "
-                      f"Best Val Corr={best_corr:.4f}")
-
-        if (w_val * best_corr + w_train * best_train_corr) > (w_val * global_best_corr + w_train * global_best_train_corr):
-            global_best_corr = best_corr
-            global_best_train_corr = best_train_corr
-            global_best_loss = best_loss
-            global_best_model = model
-            global_best_model.load_state_dict(best_state_dict)
-
-        visualize_training_progress(train_losses, val_losses, opts.output_path, f"{prefix}_fold{fold+1}")
-
-    model_save_path = os.path.join(opts.output_path, f"{prefix}_best_model.pth")
-    torch.save(global_best_model, model_save_path)
-
-    with torch.no_grad():
-        y_train_pred = global_best_model(X_train.to(device)).cpu().numpy()
-        train_corr = compute_pearson_correlation(y_train.cpu().numpy(), y_train_pred)
-        results = {'time': int(time.time() - time_start), 'train_corr': global_best_train_corr, 'prefix': prefix}
-        
-        if X_test is not None and y_test is not None:
-            y_test_pred = global_best_model(X_test.to(device)).cpu().numpy()
-            test_corr = compute_pearson_correlation(y_test.numpy(), y_test_pred)
-            results['test_corr'] = test_corr
-            results['val_corr'] = global_best_corr
-            results['loss'] = global_best_loss
-            
-            visualize_predictions(y_train.cpu().numpy(), y_train_pred, 
-                                 y_test.cpu().numpy(), y_test_pred, 
-                                 opts.output_path, prefix)
-        else:
-            visualize_training_results(y_train.cpu().numpy(), y_train_pred, opts.output_path, prefix)
-
-    pd.DataFrame([results]).to_csv(os.path.join(opts.output_path, f"{prefix}_results_cv.csv"), index=False)
-
-    log(INFO, f"Best validation correlation: {global_best_corr:.4f}")
-    log(INFO, f"Model saved to {model_save_path}")
-    log(INFO, f"Cross-validation training completed with prefix: {prefix}")
-
-    with torch.no_grad():
-        y_train_pred = global_best_model(X_train.to(device)).cpu().numpy()
-        train_metrics = compute_evaluation_metrics(y_train.cpu().numpy(), y_train_pred)
-        print_evaluation_metrics(train_metrics, "Training Set")
-        
-        if X_test is not None and y_test is not None:
-            y_test_pred = global_best_model(X_test.to(device)).cpu().numpy()
-            test_metrics = compute_evaluation_metrics(y_test.cpu().numpy(), y_test_pred)
-            print_evaluation_metrics(test_metrics, "Testing Set")
-    
-    return global_best_model, results
-
-def train_without_cv(opts, X_train, y_train, X_test, y_test, device, feature_names):
-    time_start = time.time()
-    prefix = get_output_prefix(opts)
-
-    sampler = TPESampler(seed=opts.seed)
-    study = optuna.create_study(direction='minimize', sampler=sampler)
-
-    def tune_hyperparameters(trial):
-        learning_rate = trial.suggest_float('lr', 1e-5, 1e-2, log=True)
-        # out_channels1 = trial.suggest_int('out_channels1', 1, 64)
-        # out_channels2 = trial.suggest_int('out_channels2', 16, 128)
-        # fc_layers = trial.suggest_int('fc_layers', 1, 3)
-        # fc_units = [trial.suggest_int(f'fc_units_{i}', 64, 512) for i in range(fc_layers)]
-        # kernel_size = trial.suggest_int('kernel_size', 5, 15, step=2)
-        # prior_kernel_size = trial.suggest_int('prior_kernel_size', 3, 7, step=2)
-        # prior_channels = trial.suggest_int('prior_channels', 8, 32)
-
-        model = create_model(
-            input_length=X_train.shape[2], 
-            # out_channels1=out_channels1, 
-            # out_channels2=out_channels2,
-            # prior_channels=prior_channels,
-            # fc_layers=fc_layers, 
-            # fc_units=fc_units, 
-            # prior_features=opts.prior_features,
-            # kernel_size=kernel_size,
-            # prior_kernel_size=prior_kernel_size,
             feature_names=feature_names
         ).to(device)
         optimizer = create_optimizer(model, learning_rate, opts.optimizer)
@@ -531,13 +310,9 @@ def train_without_cv(opts, X_train, y_train, X_test, y_test, device, feature_nam
         train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)
         with torch.no_grad():
             y_train_pred = model(X_train.to(device)).cpu().numpy()
-            y_test_pred = model(X_test.to(device)).cpu().numpy()
             train_corr = compute_pearson_correlation(y_train.numpy(), y_train_pred)
-            test_corr = compute_pearson_correlation(y_test.numpy(), y_test_pred)
-            test_loss = loss_fn(torch.tensor(y_test_pred, device=device), y_test.to(device)).item()
 
         train_losses.append(train_loss)
-        test_losses.append(test_loss)
 
         if train_corr > best_train_corr:
             best_train_corr = train_corr
@@ -552,7 +327,7 @@ def train_without_cv(opts, X_train, y_train, X_test, y_test, device, feature_nam
                 break
 
         log(INFO, f"Epoch {epoch + 1}: Train Corr={train_corr:.4f}, Train Loss={train_loss:.4f}, "
-                  f"Test Corr={test_corr:.4f}, Test Loss={test_loss:.4f}, Best Corr={best_train_corr:.4f}")
+                  f"Best Corr={best_train_corr:.4f}")
 
     model.load_state_dict(best_state_dict)
     model_save_path = os.path.join(opts.output_path, f"{prefix}_best_model.pth")
@@ -563,16 +338,7 @@ def train_without_cv(opts, X_train, y_train, X_test, y_test, device, feature_nam
         train_corr = compute_pearson_correlation(y_train.cpu().numpy(), y_train_pred)
         results = {'time': int(time.time() - time_start), 'train_corr': best_train_corr, 'train_loss': best_train_loss, 'prefix': prefix}
         
-        if X_test is not None and y_test is not None:
-            y_test_pred = model(X_test.to(device)).cpu().numpy()
-            test_corr = compute_pearson_correlation(y_test.numpy(), y_test_pred)
-            results['test_corr'] = test_corr
-            
-            visualize_predictions(y_train.cpu().numpy(), y_train_pred, 
-                                 y_test.cpu().numpy(), y_test_pred, 
-                                 opts.output_path, prefix)
-        else:
-            visualize_training_results(y_train.cpu().numpy(), y_train_pred, opts.output_path, prefix)
+        visualize_training_results(y_train.cpu().numpy(), y_train_pred, opts.output_path, prefix)
 
     pd.DataFrame([results]).to_csv(os.path.join(opts.output_path, f"{prefix}_results.csv"), index=False)
 
@@ -584,18 +350,13 @@ def train_without_cv(opts, X_train, y_train, X_test, y_test, device, feature_nam
         y_train_pred = model(X_train.to(device)).cpu().numpy()
         train_metrics = compute_evaluation_metrics(y_train.cpu().numpy(), y_train_pred)
         print_evaluation_metrics(train_metrics, "Training Set")
-        
-        if X_test is not None and y_test is not None:
-            y_test_pred = model(X_test.to(device)).cpu().numpy()
-            test_metrics = compute_evaluation_metrics(y_test.cpu().numpy(), y_test_pred)
-            print_evaluation_metrics(test_metrics, "Testing Set")
     
     return model, results
 
 def visualize_training_results(y_train, y_pred_train, output_path, prefix):
     plot_combined(y_pred_train.flatten(), y_train.flatten(), 
                  pearsonr(y_train.flatten(), y_pred_train.flatten())[0]**2,
-                 "Training Set Predictions (No Test Data)", 
+                 "Training Set Predictions", 
                  os.path.join(output_path, f"{prefix}_train_only_combined.png"))
 
 def plot_combined(predicted, observed, r2, title, output_path=None):
@@ -682,7 +443,7 @@ def train():
     else:
         log(INFO, "No seed provided, running with random state")
 
-    X_train, y_train, X_test, y_test, feature_names, phenotype_name = load_training_data(opts)
+    X_train, y_train, feature_names, phenotype_name = load_training_data(opts)
     device = torch.device(opts.device if torch.cuda.is_available() else 'cpu')
 
     if opts.prior_features is not None:
@@ -700,10 +461,8 @@ def train():
     else:
         log(INFO, "No prior features specified, running in single-channel mode")
     
-    if opts.no_cv:
-        return train_without_cv(opts, X_train, y_train, X_test, y_test, device, feature_names)
-    else:
-        return train_with_cv(opts, X_train, y_train, X_test, y_test, device, feature_names)
+
+    return run_train(opts, X_train, y_train, device, feature_names)
 
 if __name__ == "__main__":
     train()

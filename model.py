@@ -27,7 +27,7 @@ class ModelOpts:
         if kernel_size is None:
             kernel_size = [11, 11, 11]
         if prior_kernel_size is None:
-            prior_kernel_size = [7, 7, 7]
+            prior_kernel_size = [3, 3, 3]
         
         self.in_channels = in_channels
         self.out_channels1 = out_channels1
@@ -57,7 +57,7 @@ class PKDP(nn.Module):
         self.feature_names = feature_names if feature_names is not None else [str(i) for i in range(input_length)]
         
         default_kernel_sizes = [11, 11, 11]
-        default_prior_kernel_sizes = [7, 7, 7]
+        default_prior_kernel_sizes = [3, 3, 3]
         
         if kernel_sizes is None or len(kernel_sizes) == 0:
             kernel_sizes = default_kernel_sizes

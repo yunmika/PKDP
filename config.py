@@ -13,7 +13,6 @@ def _add_train_arguments(parser):
     required.add_argument('--prefix', type=str, default=None, help='Prefix for output files')
     
     optional = parser.add_argument_group('Optional Arguments')
-    optional.add_argument('--test_phe', type=str, default=None, help='Path to testing phenotype CSV file')
     optional.add_argument('--pnum', type=str, default=None, help='Name of phenotype to predict (default: first column)')
     optional.add_argument('--seed', type=int, default=None, help='Random seed for reproducibility (default: None, i.e., random)')
     optional.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
@@ -22,7 +21,6 @@ def _add_train_arguments(parser):
     optional.add_argument('--device', type=str, default='cuda', help='Device for training (e.g., "cpu", "cuda")')
     optional.add_argument('--optimizer', type=str, default='Adam', choices=['Adam', 'SGD', 'AdamW'], help='Optimizer type')
     optional.add_argument('--early_stop', action='store_true', help='Enable early stopping')
-    optional.add_argument('--no_cv', action='store_true', help='Use simple train-test split instead of cross-validation')
     optional.add_argument('--prior_features', type=str, nargs='*', default=None, 
                           help='Prior feature IDs (space-separated indices or names, e.g., "10 20" or "SNP1 SNP2")')
     optional.add_argument('--prior_features_file', type=str, default=None, 
@@ -30,12 +28,12 @@ def _add_train_arguments(parser):
     
     model_group = parser.add_argument_group('Model Architecture')
     model_group.add_argument('--conv_kernel_size', type=int, nargs='+', default=[11, 11, 11], 
-                            help='Kernel sizes for main convolution path (space-separated, e.g., 11 9 7)')
-    model_group.add_argument('--prior_kernel_size', type=int, nargs='+', default=[5, 5, 5], 
-                            help='Kernel sizes for prior path convolution (space-separated, e.g., 5 3 3)')
+                            help='Kernel sizes for main convolution path (space-separated, e.g., 11 11 11)')
+    model_group.add_argument('--prior_kernel_size', type=int, nargs='+', default=[3, 3, 3], 
+                            help='Kernel sizes for prior path convolution (space-separated, e.g., 3 3 3)')
     model_group.add_argument('--main_channels', type=int, nargs='+', default=[64, 32, 32], 
                             help='Number of channels in the main convolution path (space-separated, e.g., 64 32 32)')
-    model_group.add_argument('--prior_channels', type=int, nargs='+', default=[16, 16, 32], 
+    model_group.add_argument('--prior_channels', type=int, nargs='+', default=[16, 32, 32], 
                             help='Number of channels in the prior knowledge path (space-separated, e.g., 16 32 32)')
     model_group.add_argument('--fc_units', type=int, nargs='+', default=[128, 64], 
                             help='Number of units in fully connected layers (space-separated, e.g., 128 64)')
@@ -85,7 +83,7 @@ ART = (
     r"#    Genomic selection: PKDP                   #  " + '\n' +
     r"#                                              #  " + '\n' +
     r"#    Contributor: aiPGAB                       #  " + '\n' +
-    r"#    Version    : 0.0.5                        #  " + '\n' +
+    r"#    Version    : 0.0.8                        #  " + '\n' +
     r"#                                              #  " + '\n' +
     r"#    https://github.com/yunmika/PKDP           #  " + '\n' +
     r"#                                              #  " + '\n' +

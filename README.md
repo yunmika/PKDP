@@ -73,7 +73,6 @@ python ./PKDP.py train -h
 #### Optional Parameters
 | Parameter                | Description                                      | Default Value |
 |--------------------------|--------------------------------------------------|---------------|
-| `--test_phe`             | Path to the testing phenotype file              | None          |
 | `--pnum`                 | Phenotype column index or name                 | First column  |
 | `--prefix`               | Prefix for output files                         | Timestamp     |
 | `--batch_size`           | Batch size for training                         | 32            |
@@ -95,9 +94,12 @@ python ./PKDP.py train \
                --geno demo/train_geno.csv \
                --test_phe demo/test_phe.csv \
                --output_path results/ \
-               --prior_features_file ./demo/prior_features.txt \
-               --main_channels 64 32 32 --prior_channels 16 32 32
+               --prior_features_file ./demo/prior_features.txt
 ```
+
+#### Notes
+In the train model, the training set will automatically calculate hyperparameters through cross-validation. After obtaining the best hyperparameters, the model will be trained using the entire training set. This mode outputs the trained model file, which can be used for prediction in the predict model. For genotypes with values 0/1/2, it is recommended to set `--adjust_encoding`.
+
 
 ### Prediction
 
@@ -129,6 +131,7 @@ python ./PKDP.py predict -h
 ```bash
 python ./PKDP.py predict \
                --geno demo/test_geno.csv \
+               --test_phe demo/test_phe.csv \
                --prior_features_file ./demo/prior_features.txt \
                --model_path results/best_model.pth --output_path predictions/
 ```
@@ -157,7 +160,8 @@ python ./PKDP.py predict \
 - Integrated support for prior knowledge features.
 - Implemented training with cross-validation and hyperparameter optimization.
 - Added visualization tools for training progress and predictions.
-
+### v0.0.8
+- In the previous version, the optional parameter `test_phe` was only used for evaluating the predictive capability after model training. It has been removed in the new version.
 
 ## Citation
 Han F, Gao M, Zhao Y, Bi C, et al. Improving genomic selection accuracy using a dual-path convolutional neural network framework: a terpenoid case study. Unpublished.

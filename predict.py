@@ -95,8 +95,7 @@ def check_model_compatibility(model, input_data, feature_names):
         missing_prior_indices = [idx for idx in model.prior_indices if idx >= actual_length]
         if missing_prior_indices:
             log(WARNING, f"Some prior feature indices are out of range for the input data: {missing_prior_indices}")
-    
-    log(INFO, "Model compatibility check passed")
+
     return True
 
 def predict():
@@ -111,6 +110,35 @@ def predict():
         model_path = args.model_path
         log(INFO, f"Loading model from {model_path}")
         model = torch.load(model_path, map_location=device)
+
+        if hasattr(model, 'prior_indices') and model.prior_indices:
+            # log(INFO, f"Model uses prior features at indices: {model.prior_indices}")
+
+            model_feature_names = getattr(model, 'feature_names', feature_names)
+
+            if hasattr(model, 'feature_names') and model.feature_names:
+                
+                pred_name_to_idx = {name: idx for idx, name in enumerate(feature_names)}
+
+                new_order = []
+                missing_features = []
+                
+                for model_feature in model.feature_names:
+                    if model_feature in pred_name_to_idx:
+                        new_order.append(pred_name_to_idx[model_feature])
+                    else:
+                        missing_features.append(model_feature)
+                
+                if missing_features:
+                    log(WARNING, f"Some model features not found in prediction data: {missing_features}")
+                
+                if len(new_order) == len(feature_names):
+                    X_test_reordered = X_test[:, :, new_order]
+                    X_test = X_test_reordered
+                    
+                    feature_names_reordered = [feature_names[i] for i in new_order]
+                    feature_names = feature_names_reordered
+                    
         
         check_model_compatibility(model, X_test, feature_names)
         

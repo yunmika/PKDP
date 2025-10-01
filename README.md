@@ -92,7 +92,6 @@ python ./PKDP.py train -h
 python ./PKDP.py train \
                --train_phe demo/train_phe.csv \
                --geno demo/train_geno.csv \
-               --test_phe demo/test_phe.csv \
                --output_path results/ \
                --prior_features_file ./demo/prior_features.txt
 ```

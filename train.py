@@ -72,7 +72,6 @@ def load_training_data(args):
         X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
         y_train_tensor = torch.tensor(y_train, dtype=torch.float32).view(-1, 1)
 
-
         return X_train_tensor, y_train_tensor, feature_names, phenotype_name
 
     except Exception as e:
@@ -268,51 +267,119 @@ def optimize_hyperparameters(X_train, y_train, opts, device, feature_names, n_fo
     
     return best_params
 
-def run_train(opts, X_train, y_train, device, feature_names):
+def run_train(opts, X_train, y_train, device, feature_names, cv_folds=10):
+    cv_folds = max(0, min(10, cv_folds))
     time_start = time.time()
     prefix = get_output_prefix(opts)
 
     best_params = optimize_hyperparameters(X_train, y_train, opts, device, feature_names, n_folds=5)
-
-    model = create_model_with_config(X_train.shape[2], opts, feature_names, device)
-    log(INFO, f"Model architecture:\n{model}")
+    
     log(INFO, f"Best hyperparameters: {best_params}")
 
-    optimizer = create_optimizer(model, best_params['lr'], opts.optimizer)
-    loss_fn = create_loss_function()
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
-    train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=opts.batch_size, shuffle=True)
+    if cv_folds == 0:
+        model = create_model_with_config(X_train.shape[2], opts, feature_names, device)
+        log(INFO, f"Model architecture:\n{model}")
 
-    early_stopping = EarlyStopping(patience=10) if opts.early_stop else None
-    best_train_loss = float('inf')
-    best_train_corr = -float('inf')
-    best_state_dict = None
-    train_losses = []
+        optimizer = create_optimizer(model, best_params['lr'], opts.optimizer)
+        loss_fn = create_loss_function()
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
+        train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=opts.batch_size, shuffle=True)
 
-    for epoch in range(opts.epochs):
-        train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)
-        with torch.no_grad():
-            y_train_pred = model(X_train.to(device)).cpu().numpy()
-            train_corr = compute_pearson_correlation(y_train.numpy(), y_train_pred)
+        early_stopping = EarlyStopping(patience=10) if opts.early_stop else None
+        best_train_loss = float('inf')
+        best_train_corr = -float('inf')
+        best_state_dict = None
+        train_losses = []
 
-        train_losses.append(train_loss)
+        for epoch in range(opts.epochs):
+            train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)
+            with torch.no_grad():
+                y_train_pred = model(X_train.to(device)).cpu().numpy()
+                train_corr = compute_pearson_correlation(y_train.numpy(), y_train_pred)
 
-        if train_corr > best_train_corr:
-            best_train_corr = train_corr
-            best_train_loss = train_loss
-            best_state_dict = model.state_dict()
+            train_losses.append(train_loss)
 
-        scheduler.step(train_loss)
-        if early_stopping:
-            early_stopping(train_loss)
-            if early_stopping.stop:
-                log(INFO, f"Early stopping at epoch {epoch + 1}")
-                break
+            if train_corr > best_train_corr:
+                best_train_corr = train_corr
+                best_train_loss = train_loss
+                best_state_dict = model.state_dict()
 
-        log(INFO, f"Epoch {epoch + 1}: Train Corr={train_corr:.4f}, Train Loss={train_loss:.4f}, "
-                  f"Best Corr={best_train_corr:.4f}")
+            scheduler.step(train_loss)
+            if early_stopping:
+                early_stopping(train_loss)
+                if early_stopping.stop:
+                    log(INFO, f"Early stopping at epoch {epoch + 1}")
+                    break
 
-    model.load_state_dict(best_state_dict)
+            log(INFO, f"Epoch {epoch + 1}: Train Corr={train_corr:.4f}, Train Loss={train_loss:.4f}, "
+                      f"Best Corr={best_train_corr:.4f}")
+
+        model.load_state_dict(best_state_dict)
+        
+    else:
+        log(INFO, f"Using {cv_folds}-fold cross-validation for model training")
+        kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=opts.seed)
+        best_fold_corr = -float('inf')
+        best_model_state = None
+        best_train_corr = -float('inf')
+        best_train_loss = float('inf')
+        
+        for fold, (train_idx, val_idx) in enumerate(kfold.split(X_train)):
+            X_train_fold = X_train[train_idx]
+            X_val_fold = X_train[val_idx]
+            y_train_fold = y_train[train_idx]
+            y_val_fold = y_train[val_idx]
+
+            model = create_model_with_config(X_train.shape[2], opts, feature_names, device)
+            optimizer = create_optimizer(model, best_params['lr'], opts.optimizer)
+            loss_fn = create_loss_function()
+            
+            train_loader = DataLoader(TensorDataset(X_train_fold, y_train_fold), batch_size=opts.batch_size, shuffle=True)
+            val_loader = DataLoader(TensorDataset(X_val_fold, y_val_fold), batch_size=opts.batch_size, shuffle=False)
+            
+            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
+            early_stopping = EarlyStopping(patience=10)
+
+            fold_best_val_corr = -float('inf')
+            fold_best_state = None
+            
+            for epoch in range(opts.epochs):
+                train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)
+                val_loss = evaluate_epoch(model, val_loader, loss_fn, device)
+                
+                with torch.no_grad():
+                    val_pred = model(X_val_fold.to(device)).cpu().numpy()
+                    val_corr = compute_pearson_correlation(y_val_fold.numpy(), val_pred)
+                
+                if val_corr > fold_best_val_corr:
+                    fold_best_val_corr = val_corr
+                    fold_best_state = model.state_dict().copy()
+                
+                scheduler.step(val_loss)
+                early_stopping(val_loss)
+                if early_stopping.stop:
+                    break
+            
+            if fold_best_val_corr > best_fold_corr:
+                best_fold_corr = fold_best_val_corr
+                best_model_state = fold_best_state
+                
+                with torch.no_grad():
+                    model.load_state_dict(fold_best_state)
+                    train_pred = model(X_train_fold.to(device)).cpu().numpy()
+                    best_train_corr = compute_pearson_correlation(y_train_fold.numpy(), train_pred)
+                    best_train_loss = train_loss
+            
+            log(INFO, f"Fold {fold + 1}: Val Corr={fold_best_val_corr:.4f}")
+            
+            del model, optimizer, train_loader, val_loader
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        
+        model = create_model_with_config(X_train.shape[2], opts, feature_names, device)
+        model.load_state_dict(best_model_state)
+        log(INFO, f"Best fold validation correlation: {best_fold_corr:.4f}")
+
     model_save_path = os.path.join(opts.output_path, f"{prefix}_best_model.pth")
     torch.save(model, model_save_path)
 
@@ -321,9 +388,9 @@ def run_train(opts, X_train, y_train, device, feature_names):
         train_corr = compute_pearson_correlation(y_train.cpu().numpy(), y_train_pred)
         results = {'time': int(time.time() - time_start), 'train_corr': best_train_corr, 'train_loss': best_train_loss, 'prefix': prefix}
         
-        visualize_training_results(y_train.cpu().numpy(), y_train_pred, opts.output_path, prefix)
+    #     visualize_training_results(y_train.cpu().numpy(), y_train_pred, opts.output_path, prefix)
 
-    pd.DataFrame([results]).to_csv(os.path.join(opts.output_path, f"{prefix}_results.csv"), index=False)
+    # pd.DataFrame([results]).to_csv(os.path.join(opts.output_path, f"{prefix}_results.csv"), index=False)
 
     log(INFO, f"Best training correlation: {best_train_corr:.4f}")
     log(INFO, f"Model saved to {model_save_path}")
@@ -440,12 +507,68 @@ def train():
                 clean_prior_ids.append(clean_pid)
         opts.prior_features = ' '.join(clean_prior_ids)
         
+        # Validate prior features and log results
+        name_to_idx = {name: idx for idx, name in enumerate(feature_names)}
+        matched_indices = []
+        missing_features = []
+        invalid_indices = []
+        
+        for pid in clean_prior_ids:
+            try:
+                if pid.isdigit():
+                    idx = int(pid)
+                    if 0 <= idx < len(feature_names):
+                        matched_indices.append(idx)
+                    else:
+                        invalid_indices.append(pid)
+                else:
+                    idx = name_to_idx.get(pid, -1)
+                    if idx >= 0:
+                        matched_indices.append(idx)
+                    else:
+                        missing_features.append(pid)
+            except ValueError:
+                missing_features.append(pid)
+        
+        if missing_features:
+            log(WARNING, f"The following prior features were not found in feature names: {missing_features}")
+        if invalid_indices:
+            log(WARNING, f"The following prior feature indices are out of range [0, {len(feature_names)-1}]: {invalid_indices}")
+        
+        if len(matched_indices) == 0 and len(prior_ids) > 0:
+            log(WARNING, "None of the provided prior features matched!")
+        else:
+            log(INFO, f"Successfully matched {len(matched_indices)} out of {len(prior_ids)} prior features")
+            
+            if matched_indices:
+                
+                all_indices = set(range(len(feature_names)))
+                prior_indices_set = set(matched_indices)
+                non_prior_indices = sorted(list(all_indices - prior_indices_set))
+                
+                new_order = non_prior_indices + sorted(matched_indices)
+                
+                X_train_reordered = X_train[:, :, new_order]
+                X_train = X_train_reordered
+                
+                feature_names_reordered = [feature_names[i] for i in new_order]
+                feature_names = feature_names_reordered
+                
+                new_prior_indices = list(range(len(non_prior_indices), len(feature_names)))
+                
+                updated_prior_features = [str(i) for i in new_prior_indices]
+                opts.prior_features = ' '.join(updated_prior_features)
+                
+                log(INFO, f"Total features: {len(feature_names)}, Prior features: {len(new_prior_indices)}")
+            
         log(INFO, f"Enabled double-channel mode with {len(prior_ids)} prior features")
     else:
         log(INFO, "No prior features specified, running in single-channel mode")
     
+    cv_folds = getattr(opts, 'cv_folds', 10)
+    cv_folds = max(0, min(10, cv_folds))
 
-    return run_train(opts, X_train, y_train, device, feature_names)
+    return run_train(opts, X_train, y_train, device, feature_names, cv_folds)
 
 if __name__ == "__main__":
     train()

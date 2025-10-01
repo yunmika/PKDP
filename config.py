@@ -21,6 +21,8 @@ def _add_train_arguments(parser):
     optional.add_argument('--device', type=str, default='cuda', help='Device for training (e.g., "cpu", "cuda")')
     optional.add_argument('--optimizer', type=str, default='Adam', choices=['Adam', 'SGD', 'AdamW'], help='Optimizer type')
     optional.add_argument('--early_stop', action='store_true', help='Enable early stopping')
+    optional.add_argument('--cv_folds', type=int, default=10, 
+                          help='Number of cross-validation folds for model training (0-10, 0=disable CV, default=10)')
     optional.add_argument('--prior_features', type=str, nargs='*', default=None, 
                           help='Prior feature IDs (space-separated indices or names, e.g., "10 20" or "SNP1 SNP2")')
     optional.add_argument('--prior_features_file', type=str, default=None, 
@@ -83,7 +85,7 @@ ART = (
     r"#    Genomic selection: PKDP                   #  " + '\n' +
     r"#                                              #  " + '\n' +
     r"#    Contributor: aiPGAB                       #  " + '\n' +
-    r"#    Version    : 0.0.8                        #  " + '\n' +
+    r"#    Version    : 0.1.0                        #  " + '\n' +
     r"#                                              #  " + '\n' +
     r"#    https://github.com/yunmika/PKDP           #  " + '\n' +
     r"#                                              #  " + '\n' +

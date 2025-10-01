@@ -143,7 +143,6 @@ class PKDP(nn.Module):
         elif isinstance(self.prior_features, (list, tuple)):
             prior_ids = self.prior_features
         else:
-            log(WARNING, "prior_features must be a string or list")
             return []
 
         import re
@@ -160,7 +159,7 @@ class PKDP(nn.Module):
                         indices.append(idx)
                         count_matched += 1
                     else:
-                        log(WARNING, f"Invalid prior feature ID '{pid}' (index {idx} out of range [0, {self.seq_length-1}])")
+                        pass
                 else:
                     idx = name_to_idx.get(pid, -1)
                     if idx >= 0:
@@ -175,15 +174,10 @@ class PKDP(nn.Module):
                         else:
                             missing_features.append(pid)
             except ValueError:
-                log(WARNING, f"Cannot parse prior feature '{pid}' as index or name")
+                pass
         
-        if missing_features:
-            log(WARNING, f"The following prior features were not found in feature names: {missing_features}")
-        
-        if count_matched == 0 and len(prior_ids) > 0:
-            log(WARNING, "None of the provided prior features matched!")
-        else:
-            log(INFO, f"Successfully matched {count_matched} out of {len(prior_ids)} prior features")
+        if missing_features and count_matched == 0 and len(prior_ids) > 0:
+            pass
             
         return indices
 

@@ -193,91 +193,9 @@ def compute_pearson_correlation(y_true, y_pred):
         return float('nan')
     return float(pearsonr(y_true.flatten(), y_pred.flatten())[0])
 
-def optimize_hyperparameters(trial, x_train, y_train, inner_cv, device, opts, feature_names):
-    learning_rate = trial.suggest_float('lr', 1e-5, 1e-2)
-
-    best_val_loss = float('inf')
-    input_length = x_train.shape[2]
-
-    for train_idx, val_idx in inner_cv.split(x_train):
-        model = create_model(
-            input_length=input_length, 
-            feature_names=feature_names
-        ).to(device)
-        X_train_fold, X_val_fold = x_train[train_idx], x_train[val_idx]
-        y_train_fold, y_val_fold = y_train[train_idx], y_train[val_idx]
-
-        train_dataset = TensorDataset(X_train_fold, y_train_fold)
-        val_dataset = TensorDataset(X_val_fold, y_val_fold)
-        train_loader = DataLoader(train_dataset, batch_size=opts.batch_size, shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=opts.batch_size, shuffle=False)
-
-        optimizer = create_optimizer(model, learning_rate, opts.optimizer)
-        loss_fn = create_loss_function()
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
-        early_stopping = EarlyStopping(patience=10, min_delta=0.01)
-
-        for _ in range(opts.epochs):
-            train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)
-            val_loss = evaluate_epoch(model, val_loader, loss_fn, device)
-            scheduler.step(val_loss)
-            early_stopping(val_loss)
-            if early_stopping.stop:
-                break
-
-        best_val_loss = min(best_val_loss, val_loss)
-    return best_val_loss
-
-
-def run_train(opts, X_train, y_train, device, feature_names):
-    time_start = time.time()
-    prefix = get_output_prefix(opts)
-
-    sampler = TPESampler(seed=opts.seed)
-    study = optuna.create_study(direction='minimize', sampler=sampler)
-
-    def tune_hyperparameters(trial):
-        learning_rate = trial.suggest_float('lr', 1e-5, 1e-2, log=True)
-
-        model = create_model(
-            input_length=X_train.shape[2], 
-            out_channels1=opts.main_channels[0] if hasattr(opts, 'main_channels') and opts.main_channels else None,
-            out_channels2=opts.main_channels[1] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 1 else None,
-            out_channels3=opts.main_channels[2] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 2 else None,
-            prior_channels1=opts.prior_channels[0] if hasattr(opts, 'prior_channels') and opts.prior_channels else None,
-            prior_channels2=opts.prior_channels[1] if hasattr(opts, 'prior_channels') and len(opts.prior_channels) > 1 else None,
-            prior_channels3=opts.prior_channels[2] if hasattr(opts, 'prior_channels') and len(opts.prior_channels) > 2 else None,
-            fc_layers=len(opts.fc_units) if hasattr(opts, 'fc_units') and opts.fc_units else None,
-            fc_units=opts.fc_units if hasattr(opts, 'fc_units') else None,
-            kernel_size=opts.conv_kernel_size if hasattr(opts, 'conv_kernel_size') else None,
-            prior_kernel_size=opts.prior_kernel_size if hasattr(opts, 'prior_kernel_size') else None,
-            dropout_prob=opts.dropout if hasattr(opts, 'dropout') else None,
-            prior_features=opts.prior_features, 
-            feature_names=feature_names
-        ).to(device)
-        optimizer = create_optimizer(model, learning_rate, opts.optimizer)
-        loss_fn = create_loss_function()
-        train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=opts.batch_size, shuffle=True)
-
-        best_loss = float('inf')
-        best_corr = -float('inf')
-        for _ in range(opts.epochs):
-            train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)
-            with torch.no_grad():
-                y_pred = model(X_train.to(device)).cpu().numpy()
-                corr = compute_pearson_correlation(y_train.numpy(), y_pred)
-            if corr > best_corr:
-                best_corr = corr
-                best_loss = train_loss
-            if corr < 0 and _ > 10:
-                break
-        return best_loss
-
-    study.optimize(tune_hyperparameters, n_trials=opts.optuna_trials, show_progress_bar=True)
-    best_params = study.best_params
-
-    model = create_model(
-        input_length=X_train.shape[2], 
+def create_model_with_config(input_length, opts, feature_names, device):
+    return create_model(
+        input_length=input_length, 
         out_channels1=opts.main_channels[0] if hasattr(opts, 'main_channels') and opts.main_channels else None,
         out_channels2=opts.main_channels[1] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 1 else None,
         out_channels3=opts.main_channels[2] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 2 else None,
@@ -292,6 +210,71 @@ def run_train(opts, X_train, y_train, device, feature_names):
         prior_features=opts.prior_features, 
         feature_names=feature_names
     ).to(device)
+
+
+def optimize_hyperparameters(X_train, y_train, opts, device, feature_names, n_folds=5):
+    
+    sampler = TPESampler(seed=opts.seed)
+    study = optuna.create_study(direction='minimize', sampler=sampler)
+
+    def tune_hyperparameters(trial):
+        learning_rate = trial.suggest_float('lr', 1e-5, 1e-2, log=True)
+
+        kfold = KFold(n_splits=n_folds, shuffle=True, random_state=opts.seed)
+        fold_val_losses = []
+        
+        for fold, (train_idx, val_idx) in enumerate(kfold.split(X_train)):
+            X_train_fold = X_train[train_idx]
+            X_val_fold = X_train[val_idx]
+            y_train_fold = y_train[train_idx]
+            y_val_fold = y_train[val_idx]
+
+            model = create_model_with_config(X_train.shape[2], opts, feature_names, device)
+            
+            optimizer = create_optimizer(model, learning_rate, opts.optimizer)
+            loss_fn = create_loss_function()
+            
+            train_loader = DataLoader(TensorDataset(X_train_fold, y_train_fold), batch_size=opts.batch_size, shuffle=True)
+            val_loader = DataLoader(TensorDataset(X_val_fold, y_val_fold), batch_size=opts.batch_size, shuffle=False)
+            
+            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
+            early_stopping = EarlyStopping(patience=10)
+
+            best_fold_val_loss = float('inf')
+            for epoch in range(opts.epochs):
+                train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)
+                val_loss = evaluate_epoch(model, val_loader, loss_fn, device)
+                
+                scheduler.step(val_loss)
+                early_stopping(val_loss)
+                
+                if val_loss < best_fold_val_loss:
+                    best_fold_val_loss = val_loss
+                    
+                if early_stopping.stop:
+                    break
+            
+            fold_val_losses.append(best_fold_val_loss)
+            
+            del model, optimizer, train_loader, val_loader
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        
+        mean_val_loss = np.mean(fold_val_losses)
+        return mean_val_loss
+
+    study.optimize(tune_hyperparameters, n_trials=opts.optuna_trials, show_progress_bar=True)
+    best_params = study.best_params
+    
+    return best_params
+
+def run_train(opts, X_train, y_train, device, feature_names):
+    time_start = time.time()
+    prefix = get_output_prefix(opts)
+
+    best_params = optimize_hyperparameters(X_train, y_train, opts, device, feature_names, n_folds=5)
+
+    model = create_model_with_config(X_train.shape[2], opts, feature_names, device)
     log(INFO, f"Model architecture:\n{model}")
     log(INFO, f"Best hyperparameters: {best_params}")
 
@@ -304,7 +287,7 @@ def run_train(opts, X_train, y_train, device, feature_names):
     best_train_loss = float('inf')
     best_train_corr = -float('inf')
     best_state_dict = None
-    train_losses, test_losses = [], []
+    train_losses = []
 
     for epoch in range(opts.epochs):
         train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)

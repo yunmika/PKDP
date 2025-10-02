@@ -341,6 +341,9 @@ def run_train(opts, X_train, y_train, device, feature_names, cv_folds=10):
             early_stopping = EarlyStopping(patience=10)
 
             fold_best_val_corr = -float('inf')
+            fold_best_train_corr = -float('inf')
+            fold_best_train_loss = float('inf')
+            fold_best_val_loss = float('inf')
             fold_best_state = None
             
             for epoch in range(opts.epochs):
@@ -350,27 +353,33 @@ def run_train(opts, X_train, y_train, device, feature_names, cv_folds=10):
                 with torch.no_grad():
                     val_pred = model(X_val_fold.to(device)).cpu().numpy()
                     val_corr = compute_pearson_correlation(y_val_fold.numpy(), val_pred)
+                    
+                    train_pred = model(X_train_fold.to(device)).cpu().numpy()
+                    train_corr = compute_pearson_correlation(y_train_fold.numpy(), train_pred)
+                
+                # Log metrics for each epoch
+                log(INFO, f"Fold {fold + 1}, Epoch {epoch + 1}: Train Corr={train_corr:.4f}, Train Loss={train_loss:.4f}, Val Corr={val_corr:.4f}, Val Loss={val_loss:.4f}")
                 
                 if val_corr > fold_best_val_corr:
                     fold_best_val_corr = val_corr
+                    fold_best_train_corr = train_corr
+                    fold_best_train_loss = train_loss
+                    fold_best_val_loss = val_loss
                     fold_best_state = model.state_dict().copy()
                 
                 scheduler.step(val_loss)
                 early_stopping(val_loss)
                 if early_stopping.stop:
+                    log(INFO, f"Fold {fold + 1}: Early stopping at epoch {epoch + 1}")
                     break
             
             if fold_best_val_corr > best_fold_corr:
                 best_fold_corr = fold_best_val_corr
                 best_model_state = fold_best_state
-                
-                with torch.no_grad():
-                    model.load_state_dict(fold_best_state)
-                    train_pred = model(X_train_fold.to(device)).cpu().numpy()
-                    best_train_corr = compute_pearson_correlation(y_train_fold.numpy(), train_pred)
-                    best_train_loss = train_loss
+                best_train_corr = fold_best_train_corr
+                best_train_loss = fold_best_train_loss
             
-            log(INFO, f"Fold {fold + 1}: Val Corr={fold_best_val_corr:.4f}")
+            log(INFO, f"Fold {fold + 1} Best Train Corr={fold_best_train_corr:.4f}, Best Train Loss={fold_best_train_loss:.4f}, Best Val Corr={fold_best_val_corr:.4f}, Best Val Loss={fold_best_val_loss:.4f}")
             
             del model, optimizer, train_loader, val_loader
             if torch.cuda.is_available():
@@ -396,10 +405,10 @@ def run_train(opts, X_train, y_train, device, feature_names, cv_folds=10):
     log(INFO, f"Model saved to {model_save_path}")
     log(INFO, f"Training completed with prefix: {prefix}")
 
-    with torch.no_grad():
-        y_train_pred = model(X_train.to(device)).cpu().numpy()
-        train_metrics = compute_evaluation_metrics(y_train.cpu().numpy(), y_train_pred)
-        print_evaluation_metrics(train_metrics, "Training Set")
+    # with torch.no_grad():
+    #     y_train_pred = model(X_train.to(device)).cpu().numpy()
+    #     train_metrics = compute_evaluation_metrics(y_train.cpu().numpy(), y_train_pred)
+    #     print_evaluation_metrics(train_metrics, "Training Set")
     
     return model, results
 

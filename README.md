@@ -76,8 +76,8 @@ python ./PKDP.py train -h
 | `--pnum`                 | Phenotype column index or name                 | First column  |
 | `--prefix`               | Prefix for output files                         | Timestamp     |
 | `--batch_size`           | Batch size for training                         | 32            |
-| `--epochs`               | Number of training epochs                       | 50            |
-| `--optuna_trials`        | Number of Optuna trials for hyperparameter tuning | 20          |
+| `--epochs`               | Number of training epochs                       | 100           |
+| `--optuna_trials`        | Number of Optuna trials for hyperparameter tuning | 50           |
 | `--device`               | Device to use (`cuda` or `cpu`)                 | cuda:0        |
 | `--optimizer`            | Optimizer type (`Adam`, `SGD`, `AdamW`)         | Adam          |
 | `--early_stop`           | Enable early stopping                           | False         |

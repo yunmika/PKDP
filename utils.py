@@ -1,3 +1,4 @@
+import os
 import random
 import string
 import time
@@ -11,3 +12,8 @@ def generate_prefix():
 def get_output_prefix(args):
     """Get output prefix from args or generate a random one"""
     return args.prefix if args.prefix else generate_prefix()
+
+def ensure_output_path(path: str):
+    """Create the output directory if it does not exist."""
+    if path:
+        os.makedirs(path, exist_ok=True)

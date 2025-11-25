@@ -10,7 +10,7 @@ from scipy.stats import pearsonr
 from model import create_model
 from config import parse_args
 from log import log, INFO, WARNING, ERROR
-from utils import get_output_prefix
+from utils import get_output_prefix, ensure_output_path
 import os
 import re
 import sys
@@ -100,6 +100,7 @@ def check_model_compatibility(model, input_data, feature_names):
 
 def predict():
     args = parse_args()
+    ensure_output_path(args.output_path)
     try:
         X_test, y_test, sample_ids, phenotype_name, feature_names = load_prediction_data(args)
         log(INFO, f"Loaded test data - X shape: {X_test.shape}, features: {len(feature_names)}")
@@ -147,7 +148,6 @@ def predict():
         with torch.no_grad():
             y_pred = model(X_test.to(device)).cpu().numpy()
 
-        os.makedirs(args.output_path, exist_ok=True)
         prefix = get_output_prefix(args)
         
         if y_test is not None:

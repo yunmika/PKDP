@@ -19,7 +19,7 @@ from scipy.stats import pearsonr
 import optuna
 import time
 import functools
-from utils import get_output_prefix
+from utils import get_output_prefix, ensure_output_path
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from optuna.samplers import TPESampler
 import re
@@ -496,6 +496,7 @@ def print_evaluation_metrics(metrics, dataset_name):
 
 def train():
     opts = parse_args()
+    ensure_output_path(opts.output_path)
     if opts.seed is not None:
         set_random_seed(opts.seed)
         log(INFO, f"Using fixed random seed: {opts.seed}")

@@ -19,7 +19,7 @@
 
 <div style="clear: both; margin: 2rem 0; overflow: hidden;">
   <a href="https://github.com/user-attachments/assets/ea8747a8-acbe-49fb-ac59-d912acf12226">
-    <img src="https://github.com/user-attachments/assets/ea8747a8-acbe-49fb-ac59-d912acf12226" align="right" style="width: 25%; height: auto; margin-left: 1rem; margin-bottom: 1rem;" alt="Graphical Abstract">
+    <img src="https://github.com/user-attachments/assets/ea8747a8-acbe-49fb-ac59-d912acf12226" align="left" style="width: 25%; height: auto; margin-right: 1rem; margin-bottom: 1rem;" alt="Graphical Abstract">
   </a>
   <div style="text-align: justify;">
     <p>PKDP (Prior Knowledge Dual-Path CNN) is a dual-path convolutional neural network framework designed to enhance genomic selection (GS) by integrating genome-wide association study (GWAS) results with genome-wide minor-effect markers.</p>

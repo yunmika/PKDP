@@ -3,10 +3,6 @@
 <div align="center">
 <h1>Prior Knowledge Dual-Path CNN</h1>
 
-<p><strong>Research from:</strong></p>
-<p>State Key Laboratory of Tree Genetics and Breeding, Chinese Academy of Forestry, Beijing 100091, China<br>
-Research Institute of Subtropical Forestry, Chinese Academy of Forestry, Hangzhou 311400, China<br>
-State Key Laboratory of Tree Genetics and Breeding, Nanjing Forestry University, Nanjing 210037, China</p>
 </div>
 
 ***
@@ -163,5 +159,5 @@ python ./PKDP.py predict \
 - In the previous version, the optional parameter `test_phe` was only used for evaluating the predictive capability after model training. It has been removed in the new version.
 
 ## Citation
-Han F, Gao M, Zhao Y, Bi C, et al. Improving genomic selection accuracy using a dual-path convolutional neural network framework: a terpenoid case study. Unpublished.
+Han, F., Gao, M., Zhao, Y., Bi, C., Yang, Y., Zhang, J., Wang, Y. and Chen, Y. (2025), Improving genomic selection accuracy using a dual-path convolutional neural network framework: a terpenoid case study. New Phytol. https://doi.org/10.1111/nph.70727
 

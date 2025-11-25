@@ -85,7 +85,7 @@ def check_model_compatibility(model, input_data, feature_names):
         raise ValueError(f"Feature count mismatch: expected {expected_length}, got {actual_length}")
     
     if hasattr(model, 'prior_indices') and hasattr(model, 'feature_names') and model.prior_indices:
-        log(INFO, f"Model uses prior features at indices: {model.prior_indices}")
+        # log(INFO, f"Model uses prior features at indices: {model.prior_indices}")
         
         if len(model.feature_names) != len(feature_names):
             log(WARNING, f"Feature name count mismatch: Model has {len(model.feature_names)} feature names, but input has {len(feature_names)}")

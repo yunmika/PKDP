@@ -17,18 +17,17 @@
 
 <p  align="center"><img src="https://github.com/user-attachments/assets/089f554e-3743-49a8-9672-61dda37afaa2" style="width: 70%; height: auto;"></p>
 
-<div style="clear: both; margin: 1.5rem 0;">
+<div style="clear: both; margin: 2rem 0; overflow: hidden;">
   <a href="https://github.com/user-attachments/assets/ea8747a8-acbe-49fb-ac59-d912acf12226">
-    <img src="https://github.com/user-attachments/assets/ea8747a8-acbe-49fb-ac59-d912acf12226" align="right" width="30%" height="auto" alt="Graphical Abstract">
+    <img src="https://github.com/user-attachments/assets/ea8747a8-acbe-49fb-ac59-d912acf12226" align="right" style="width: 25%; height: auto; margin-left: 1rem; margin-bottom: 1rem;" alt="Graphical Abstract">
   </a>
-  <p style="margin-top: 0.5rem;">
-   PKDP (Prior Knowledge Dual-Path CNN) is a dual-path convolutional neural network framework designed to enhance genomic selection (GS) by integrating genome-wide association study (GWAS) results with genome-wide minor-effect markers.</p>
-    <p>
-    Han, F., Gao, M., Zhao, Y., Bi, C., Yang, Y., Zhang, J., Wang, Y. and Chen, Y. (2025), Improving genomic selection accuracy using a dual-path convolutional neural network framework: a terpenoid case study. <em>New Phytol</em>. https://doi.org/10.1111/nph.70727
-  </p>
+  <div style="text-align: justify;">
+    <p>PKDP (Prior Knowledge Dual-Path CNN) is a dual-path convolutional neural network framework designed to enhance genomic selection (GS) by integrating genome-wide association study (GWAS) results with genome-wide minor-effect markers.</p>
+    <p>Han, F., Gao, M., Zhao, Y., Bi, C., Yang, Y., Zhang, J., Wang, Y. and Chen, Y. (2025), Improving genomic selection accuracy using a dual-path convolutional neural network framework: a terpenoid case study. <em>New Phytol</em>. https://doi.org/10.1111/nph.70727</p>
+  </div>
 </div>
 
-<div style="clear: both;"></div>
+<div style="clear: both; margin-bottom: 2rem;"></div>
 
 ## Installation
 

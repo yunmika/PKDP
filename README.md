@@ -84,7 +84,7 @@ python ./PKDP.py train -h
 | `--optuna_trials`        | Number of Optuna trials for hyperparameter tuning | 50           |
 | `--device`               | Device to use (`cuda` or `cpu`)                 | cuda:0        |
 | `--optimizer`            | Optimizer type (`Adam`, `SGD`, `AdamW`)         | Adam          |
-| `--early_stop`           | Enable early stopping                           | False         |
+| `--early_stop`           | Enable early stopping                           | True          |
 | `--prior_features`       | Prior knowledge features (space-separated IDs)  | None          |
 | `--prior_features_file`  | Path to a file with one prior feature ID per line | None        |
 | `--adjust_encoding`      | Adjust genotype encoding from {0,1,2} to {-1,0,1} | False      |

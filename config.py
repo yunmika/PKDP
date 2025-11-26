@@ -20,7 +20,7 @@ def _add_train_arguments(parser):
     optional.add_argument('--optuna_trials', type=int, default=50, help='Number of Optuna trials for hyperparameter tuning')
     optional.add_argument('--device', type=str, default='cuda', help='Device for training (e.g., "cpu", "cuda")')
     optional.add_argument('--optimizer', type=str, default='Adam', choices=['Adam', 'SGD', 'AdamW'], help='Optimizer type')
-    optional.add_argument('--early_stop', action='store_true', help='Enable early stopping')
+    optional.add_argument('--early_stop', action='store_true', default=True, help='Enable early stopping')
     optional.add_argument('--cv_folds', type=int, default=0, 
                           help='Number of cross-validation folds for model training (0-10, 0=disable CV, default=0)')
     optional.add_argument('--prior_features', type=str, nargs='*', default=None, 
@@ -39,7 +39,7 @@ def _add_train_arguments(parser):
                             help='Number of channels in the prior knowledge path (space-separated, e.g., 16 32 32)')
     model_group.add_argument('--fc_units', type=int, nargs='+', default=[128, 64], 
                             help='Number of units in fully connected layers (space-separated, e.g., 128 64)')
-    model_group.add_argument('--dropout', type=float, default=0, 
+    model_group.add_argument('--dropout', type=float, default=0.2, 
                             help='Dropout probability for fully connected layers')
     optional.add_argument('--adjust_encoding', action='store_true', 
                           help='Adjust genotype encoding from {0,1,2} to {-1,0,1}')
@@ -85,7 +85,7 @@ ART = (
     r"#    Genomic selection: PKDP                   #  " + '\n' +
     r"#                                              #  " + '\n' +
     r"#    Contributor: aiPGAB                       #  " + '\n' +
-    r"#    Version    : 0.1.0                        #  " + '\n' +
+    r"#    Version    : 0.1.2                        #  " + '\n' +
     r"#                                              #  " + '\n' +
     r"#    https://github.com/yunmika/PKDP           #  " + '\n' +
     r"#                                              #  " + '\n' +

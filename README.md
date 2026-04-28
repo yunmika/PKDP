@@ -93,11 +93,26 @@ python ./PKDP.py train -h
 #### Usage
 
 ```bash
+# Example 1: Additive + LD
 python ./PKDP.py train \
-               --train_phe demo/train_phe.csv \
-               --geno demo/train_geno.csv \
-               --output_path results/ \
-               --prior_features_file ./demo/prior_features.txt
+               --train_phe demo1_train_phe.csv \
+               --geno demo1_train_geno.csv \
+               --output_path results_demo1/ \
+               --prior_features_file demo1_prior_features.txt
+
+# Example 2: Additive + Dominance + LD
+python ./PKDP.py train \
+               --train_phe demo2_train_phe.csv \
+               --geno demo2_train_geno.csv \
+               --output_path results_demo2/ \
+               --prior_features_file demo2_prior_features.txt
+
+# Example 3: Additive + Epistasis + LD
+python ./PKDP.py train \
+               --train_phe demo3_train_phe.csv \
+               --geno demo3_train_geno.csv \
+               --output_path results_demo3/ \
+               --prior_features_file demo3_prior_features.txt
 ```
 
 #### Notes
@@ -132,11 +147,29 @@ python ./PKDP.py predict -h
 #### Usage
 
 ```bash
+# Predict using Demo 1 model
 python ./PKDP.py predict \
-               --geno demo/test_geno.csv \
-               --test_phe demo/test_phe.csv \
-               --prior_features_file ./demo/prior_features.txt \
-               --model_path results/best_model.pth --output_path predictions/
+               --geno demo1_test_geno.csv \
+               --test_phe demo1_test_phe.csv \
+               --prior_features_file demo1_prior_features.txt \
+               --model_path results_demo1/best_model.pth \
+               --output_path predictions_demo1/
+
+# Predict using Demo 2 model
+python ./PKDP.py predict \
+               --geno demo2_test_geno.csv \
+               --test_phe demo2_test_phe.csv \
+               --prior_features_file demo2_prior_features.txt \
+               --model_path results_demo2/best_model.pth \
+               --output_path predictions_demo2/
+
+# Predict using Demo 3 model
+python ./PKDP.py predict \
+               --geno demo3_test_geno.csv \
+               --test_phe demo3_test_phe.csv \
+               --prior_features_file demo3_prior_features.txt \
+               --model_path results_demo3/best_model.pth \
+               --output_path predictions_demo3/
 ```
 
 #### Notes
@@ -145,8 +178,8 @@ python ./PKDP.py predict \
 - The `--pnum` parameter can be used to specify the phenotype column to predict.
 - During model training, samples with NA values in the phenotype will be automatically ignored, so there is no need to manually remove samples with NA values.
 - The order of SNPs in the prediction should match the order used during training.
-- Input phenotype data format: see `./demo/demo_phenotypes.csv`
-- Input genotype data format: see `./demo/demo_genotypes.csv`
+- Input phenotype data format: see `demo1_train_phe.csv`
+- Input genotype data format: see `demo1_train_geno.csv`
 - During model training, please pay close attention to adjusting the following hyperparameters, as they significantly impact model performance:
     *   `--main_channels`: Number of channels in the main network.
     *   `--prior_channels`: Number of channels in the prior knowledge network.
@@ -168,4 +201,3 @@ python ./PKDP.py predict \
 
 ## Citation
 Han, F., Gao, M., Zhao, Y., Bi, C., Yang, Y., Zhang, J., Wang, Y. and Chen, Y. (2025), Improving genomic selection accuracy using a dual-path convolutional neural network framework: a terpenoid case study. New Phytol. https://doi.org/10.1111/nph.70727
-

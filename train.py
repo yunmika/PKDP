@@ -87,6 +87,7 @@ def train_epoch(model, train_loader, optimizer, loss_fn, device):
         outputs = model(inputs)
         loss = loss_fn(outputs, labels)
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0)
         optimizer.step()
         total_loss += loss.item()
     return total_loss / len(train_loader)
@@ -195,16 +196,12 @@ def compute_pearson_correlation(y_true, y_pred):
 def create_model_with_config(input_length, opts, feature_names, device):
     return create_model(
         input_length=input_length, 
-        out_channels1=opts.main_channels[0] if hasattr(opts, 'main_channels') and opts.main_channels else None,
-        out_channels2=opts.main_channels[1] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 1 else None,
-        out_channels3=opts.main_channels[2] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 2 else None,
-        prior_channels1=opts.prior_channels[0] if hasattr(opts, 'prior_channels') and opts.prior_channels else None,
-        prior_channels2=opts.prior_channels[1] if hasattr(opts, 'prior_channels') and len(opts.prior_channels) > 1 else None,
-        prior_channels3=opts.prior_channels[2] if hasattr(opts, 'prior_channels') and len(opts.prior_channels) > 2 else None,
+        out_channels1=opts.main_channels[0] if getattr(opts, 'main_channels', None) else None,
+        out_channels2=opts.main_channels[1] if getattr(opts, 'main_channels', None) and len(opts.main_channels) > 1 else None,
+        out_channels3=opts.main_channels[2] if getattr(opts, 'main_channels', None) and len(opts.main_channels) > 2 else None,
         fc_layers=len(opts.fc_units) if hasattr(opts, 'fc_units') and opts.fc_units else None,
         fc_units=opts.fc_units if hasattr(opts, 'fc_units') else None,
         kernel_size=opts.conv_kernel_size if hasattr(opts, 'conv_kernel_size') else None,
-        prior_kernel_size=opts.prior_kernel_size if hasattr(opts, 'prior_kernel_size') else None,
         dropout_prob=opts.dropout if hasattr(opts, 'dropout') else None,
         prior_features=opts.prior_features, 
         feature_names=feature_names
@@ -212,6 +209,9 @@ def create_model_with_config(input_length, opts, feature_names, device):
 
 
 def optimize_hyperparameters(X_train, y_train, opts, device, feature_names, n_folds=5):
+    if getattr(opts, 'optuna_trials', 50) <= 0:
+        log(INFO, "Optuna trials <= 0, skipping hyperparameter tuning and using default lr=0.001")
+        return {'lr': 0.001}
     
     sampler = TPESampler(seed=opts.seed)
     study = optuna.create_study(direction='minimize', sampler=sampler)

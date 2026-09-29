@@ -1,0 +1,14 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Training & prediction artifacts
+results_*/
+predictions_*/
+*.pth
+*.pt
+
+# OS files
+.DS_Store
+*.swp

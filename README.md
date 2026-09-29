@@ -60,11 +60,11 @@ python ./PKDP.py predict \
 
 ## Documentation
 
-Detailed documentation and references are available in the [Wiki](wiki/Home.md):
+Detailed documentation and references are available in the [PKDP Wiki](https://github.com/yunmika/PKDP/wiki):
 
-- [Data Preparation](wiki/Data-Preparation.md): Format requirements for genotype, phenotype, and prior feature files.
-- [CLI Reference](wiki/CLI-Reference.md): Detailed parameter options for training and prediction.
-- [Tutorials and Demos](wiki/Tutorials-and-Demos.md): Benchmark evaluation and usage examples on Demos 1–3.
+- [Data Preparation](https://github.com/yunmika/PKDP/wiki/Data-Preparation): Format requirements for genotype, phenotype, and prior feature files.
+- [CLI Reference](https://github.com/yunmika/PKDP/wiki/CLI-Reference): Detailed parameter options for training and prediction.
+- [Tutorials and Demos](https://github.com/yunmika/PKDP/wiki/Tutorials-and-Demos): Benchmark evaluation and usage examples on Demos 1–3.
 
 ## Citation
 

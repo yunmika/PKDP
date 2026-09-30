@@ -15,35 +15,26 @@ class ModelOpts:
                  out_channels1=64,
                  out_channels2=32,
                  out_channels3=32,
-                 prior_channels1=16,
-                 prior_channels2=32,
-                 prior_channels3=32,
                  fc_layers=2,
                  fc_units=None,
                  out_dim=1,
                  kernel_size=None,
-                 prior_kernel_size=None,
                  dropout_prob=0.2,
-                 prior_features=None):
+                 prior_features=None,
+                 **kwargs):
         if fc_units is None:
             fc_units = [128, 64]
         if kernel_size is None:
             kernel_size = [5, 11, 21]
-        if prior_kernel_size is None:
-            prior_kernel_size = [3, 3, 3]
         
         self.in_channels = in_channels
         self.out_channels1 = out_channels1
         self.out_channels2 = out_channels2
         self.out_channels3 = out_channels3
-        self.prior_channels1 = prior_channels1
-        self.prior_channels2 = prior_channels2
-        self.prior_channels3 = prior_channels3
         self.fc_layers = fc_layers
         self.fc_units = fc_units
         self.out_dim = out_dim
         self.kernel_size = kernel_size
-        self.prior_kernel_size = prior_kernel_size
         self.dropout_prob = dropout_prob
         self.prior_features = prior_features
 
@@ -69,22 +60,20 @@ class SEBlock1D(nn.Module):
 class MultiScaleResBlock1D(nn.Module):
     def __init__(self, in_ch, out_ch, kernel_sizes=[5, 11, 21]):
         super(MultiScaleResBlock1D, self).__init__()
-        b1 = out_ch // 3
-        b2 = out_ch // 3
-        b3 = out_ch - b1 - b2
-        
         k1, k2, k3 = kernel_sizes if len(kernel_sizes) >= 3 else [5, 11, 21]
-        
-        self.conv_k1 = nn.Conv1d(in_ch, b1, kernel_size=k1, padding=k1 // 2)
-        self.conv_k2 = nn.Conv1d(in_ch, b2, kernel_size=k2, padding=k2 // 2)
-        self.conv_k3 = nn.Conv1d(in_ch, b3, kernel_size=k3, padding=k3 // 2)
+
+        self.conv1 = nn.Conv1d(in_ch, out_ch, kernel_size=k1, padding=k1 // 2)
         self.bn1 = nn.BatchNorm1d(out_ch)
         self.act1 = nn.GELU()
-        
-        self.conv2 = nn.Conv1d(out_ch, out_ch, kernel_size=11, padding=5)
+
+        self.conv2 = nn.Conv1d(out_ch, out_ch, kernel_size=k2, padding=k2 // 2)
         self.bn2 = nn.BatchNorm1d(out_ch)
+        self.act2 = nn.GELU()
+
+        self.conv3 = nn.Conv1d(out_ch, out_ch, kernel_size=k3, padding=k3 // 2)
+        self.bn3 = nn.BatchNorm1d(out_ch)
         self.se = SEBlock1D(out_ch)
-        
+
         self.shortcut = nn.Sequential(
             nn.Conv1d(in_ch, out_ch, kernel_size=1),
             nn.BatchNorm1d(out_ch)
@@ -92,11 +81,15 @@ class MultiScaleResBlock1D(nn.Module):
 
     def forward(self, x):
         res = self.shortcut(x)
-        c = torch.cat([self.conv_k1(x), self.conv_k2(x), self.conv_k3(x)], dim=1)
-        out = self.act1(self.bn1(c))
-        out = self.bn2(self.conv2(out))
+        out = self.act1(self.bn1(self.conv1(x)))
+        out = self.act2(self.bn2(self.conv2(out)))
+        out = self.bn3(self.conv3(out))
         out = self.se(out)
         return self.act1(out + res)
+
+
+SequentialCascadedBlock1D = MultiScaleResBlock1D
+CascadedResBlock1D = MultiScaleResBlock1D
 
 
 class EpistasisModule(nn.Module):
@@ -127,10 +120,8 @@ class EpistasisModule(nn.Module):
 
 class PKDP(nn.Module):
     def __init__(self, in_channels=1, out_channels1=64, out_channels2=32, out_channels3=32, 
-                 prior_channels1=None, prior_channels2=None, prior_channels3=None,
                  fc_layers=None, fc_units=None, out_dim=1, input_length=3000, 
-                 kernel_sizes=None, prior_kernel_sizes=None, 
-                 dropout_prob=0.2, prior_features=None, feature_names=None,
+                 kernel_sizes=None, dropout_prob=0.2, prior_features=None, feature_names=None,
                  prior_dim=64, **kwargs):
         super(PKDP, self).__init__()
         
@@ -254,14 +245,10 @@ def create_model(
     out_channels1=None,
     out_channels2=None,
     out_channels3=None,
-    prior_channels1=None,
-    prior_channels2=None,
-    prior_channels3=None,
     fc_layers=None,
     fc_units=None,
     out_dim=None,
     kernel_size=None,
-    prior_kernel_size=None,
     dropout_prob=None,
     prior_features=None,
     feature_names=None,

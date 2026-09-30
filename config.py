@@ -29,8 +29,8 @@ def _add_train_arguments(parser):
                           help='Path to a text file with one prior feature ID per line (overrides --prior_features if provided)')
     
     model_group = parser.add_argument_group('Model Architecture')
-    model_group.add_argument('--conv_kernel_size', type=int, nargs='+', default=[5, 11, 21], 
-                            help='Multi-scale kernel sizes for main convolution path (space-separated, e.g., 5 11 21)')
+    model_group.add_argument('--conv_kernel_size', type=int, nargs='+', default=[11, 11, 11], 
+                            help='Kernel sizes for main convolution path (space-separated, e.g., 11 11 11)')
     model_group.add_argument('--main_channels', type=int, nargs='+', default=[64, 32, 32], 
                             help='Number of channels in the main convolution path (space-separated, e.g., 64 32 32)')
     model_group.add_argument('--fc_units', type=int, nargs='+', default=[128, 64], 

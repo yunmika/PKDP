@@ -25,7 +25,7 @@ class ModelOpts:
         if fc_units is None:
             fc_units = [128, 64]
         if kernel_size is None:
-            kernel_size = [5, 11, 21]
+            kernel_size = [11, 11, 11]
         
         self.in_channels = in_channels
         self.out_channels1 = out_channels1
@@ -58,9 +58,9 @@ class SEBlock1D(nn.Module):
 
 
 class MultiScaleResBlock1D(nn.Module):
-    def __init__(self, in_ch, out_ch, kernel_sizes=[5, 11, 21]):
+    def __init__(self, in_ch, out_ch, kernel_sizes=[11, 11, 11]):
         super(MultiScaleResBlock1D, self).__init__()
-        k1, k2, k3 = kernel_sizes if len(kernel_sizes) >= 3 else [5, 11, 21]
+        k1, k2, k3 = kernel_sizes if len(kernel_sizes) >= 3 else [11, 11, 11]
 
         self.conv1 = nn.Conv1d(in_ch, out_ch, kernel_size=k1, padding=k1 // 2)
         self.bn1 = nn.BatchNorm1d(out_ch)
@@ -142,7 +142,7 @@ class PKDP(nn.Module):
         c2 = out_channels2 or 32
         c3 = out_channels3 or 32
         
-        k_sizes = kernel_sizes if kernel_sizes and len(kernel_sizes) >= 3 else [5, 11, 21]
+        k_sizes = kernel_sizes if kernel_sizes and len(kernel_sizes) >= 3 else [11, 11, 11]
         
         self.conv1 = MultiScaleResBlock1D(in_channels, c1, kernel_sizes=k_sizes)
         self.pool1 = nn.MaxPool1d(2)
@@ -258,11 +258,11 @@ def create_model(
     c2 = out_channels2 or (getattr(opts, 'main_channels', [64, 32])[1] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 1 else 32)
     c3 = out_channels3 or (getattr(opts, 'main_channels', [64, 32, 32])[2] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 2 else 32)
     
-    k_sizes = kernel_size or getattr(opts, 'conv_kernel_size', [5, 11, 21])
+    k_sizes = kernel_size or getattr(opts, 'conv_kernel_size', [11, 11, 11])
     if isinstance(k_sizes, (int, float)):
         k_sizes = [int(k_sizes)] * 3
     elif len(k_sizes) < 3:
-        k_sizes = [5, 11, 21]
+        k_sizes = [11, 11, 11]
         
     priors = prior_features if prior_features is not None else getattr(opts, 'prior_features', None)
     units = fc_units or getattr(opts, 'fc_units', [128, 64])

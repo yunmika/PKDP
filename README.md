@@ -70,17 +70,6 @@ Detailed documentation and references are available in the [PKDP Wiki](https://g
 
 Han, F., Gao, M., Zhao, Y., Bi, C., Yang, Y., Zhang, J., Wang, Y. and Chen, Y. (2025), Improving genomic selection accuracy using a dual-path convolutional neural network framework: a terpenoid case study. *New Phytol*. https://doi.org/10.1111/nph.70727
 
-```bibtex
-@article{han2025improving,
-  title={Improving genomic selection accuracy using a dual-path convolutional neural network framework: a terpenoid case study},
-  author={Han, Fengchen and Gao, Mengfan and Zhao, Yuxuan and Bi, Chen and Yang, Yanzhao and Zhang, Junjie and Wang, Yue and Chen, Yaxian},
-  journal={New Phytologist},
-  year={2025},
-  publisher={Wiley Online Library},
-  doi={10.1111/nph.70727}
-}
-```
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

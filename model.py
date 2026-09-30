@@ -1,31 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-=============================================================================
-PKDP v0.1.5: Prior Knowledge Dual-Path Genomic Selection Network
-=============================================================================
-Core Architecture:
-1. Polygenic Path: Multi-Scale Residual Convolutions (Kernels 5, 11, 21) 
-   with Squeeze-and-Excitation (SE) Channel Attention.
-2. Prior Epistasis Path: Pure explicit pairwise interaction products (x_i * x_j)
-   strictly aligned with Cockerham additive-additive (A x A) quantitative genetics.
-3. Feature-Level Modulation: FiLM Gating ((1 + gamma) * F_main + beta).
-4. Predictor Head: Full spatial resolution feature representation into deep MLP.
-=============================================================================
-"""
-
 import re
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from log import log, WARNING, ERROR, INFO
 
-# Minimum features required for convolution
 MIN_FEATURES_FOR_CONV = 4
 
 class ModelOpts:
-    """Configuration options for PKDP v0.1.5 model"""
     def __init__(self,
                  in_channels=1,
                  out_channels1=64,
@@ -65,7 +49,6 @@ class ModelOpts:
 
 
 class SEBlock1D(nn.Module):
-    """Squeeze-and-Excitation channel attention for LD block weighting"""
     def __init__(self, channels, reduction=4):
         super(SEBlock1D, self).__init__()
         red = max(4, channels // reduction)
@@ -84,11 +67,6 @@ class SEBlock1D(nn.Module):
 
 
 class MultiScaleResBlock1D(nn.Module):
-    """
-    Multi-Scale Residual Block:
-    Parallel convolution branches with kernel sizes 5 (local LD), 11 (haplotype), 21 (broad block)
-    equipped with SE channel attention and residual identity connection.
-    """
     def __init__(self, in_ch, out_ch, kernel_sizes=[5, 11, 21]):
         super(MultiScaleResBlock1D, self).__init__()
         b1 = out_ch // 3
@@ -122,11 +100,6 @@ class MultiScaleResBlock1D(nn.Module):
 
 
 class EpistasisModule(nn.Module):
-    """
-    Explicit Pairwise Epistasis Module:
-    Exclusively computes explicit pairwise interaction cross-products (x_i * x_j).
-    Strictly aligns with Cockerham quantitative genetics additive-additive (A x A) epistasis.
-    """
     def __init__(self, num_priors, out_dim=64, dropout=0.2, **kwargs):
         super(EpistasisModule, self).__init__()
         self.num_priors = num_priors
@@ -153,10 +126,6 @@ class EpistasisModule(nn.Module):
 
 
 class PKDP(nn.Module):
-    """
-    PKDP v0.1.5:
-    Epistasis-Aware & Multi-Scale LD Dual-Path Genomic Selection Network
-    """
     def __init__(self, in_channels=1, out_channels1=64, out_channels2=32, out_channels3=32, 
                  prior_channels1=None, prior_channels2=None, prior_channels3=None,
                  fc_layers=None, fc_units=None, out_dim=1, input_length=3000, 
@@ -170,7 +139,6 @@ class PKDP(nn.Module):
         self.prior_features = prior_features
         self.feature_names = feature_names if feature_names is not None else [str(i) for i in range(input_length)]
         
-        # Resolve prior indices
         self.prior_indices = self._get_prior_indices()
         self.num_priors = len(self.prior_indices)
         
@@ -185,7 +153,6 @@ class PKDP(nn.Module):
         
         k_sizes = kernel_sizes if kernel_sizes and len(kernel_sizes) >= 3 else [5, 11, 21]
         
-        # 1. Polygenic Path: Multi-Scale LD Residual Convolutions + SE Attention
         self.conv1 = MultiScaleResBlock1D(in_channels, c1, kernel_sizes=k_sizes)
         self.pool1 = nn.MaxPool1d(2)
         self.conv2 = MultiScaleResBlock1D(c1, c2, kernel_sizes=k_sizes)
@@ -196,7 +163,6 @@ class PKDP(nn.Module):
         out_len = self.num_main // 8
         self.main_flat_dim = c3 * out_len
         
-        # 2. Prior Epistasis Path
         if self.num_priors > 0:
             self.prior_net = EpistasisModule(self.num_priors, out_dim=prior_dim, dropout=dropout_prob)
             self.film_gamma = nn.Linear(prior_dim, c3)
@@ -210,7 +176,6 @@ class PKDP(nn.Module):
             self.has_priors = False
             total_dim = self.main_flat_dim
         
-        # 3. Predictor Head
         units = fc_units if fc_units else [128, 64]
         fc_list = []
         cur_dim = total_dim
@@ -228,6 +193,7 @@ class PKDP(nn.Module):
     def _get_prior_indices(self):
         if self.prior_features is None:
             return []
+        
         if isinstance(self.prior_features, (list, tuple)):
             prior_ids = self.prior_features
         elif isinstance(self.prior_features, str):
@@ -262,7 +228,6 @@ class PKDP(nn.Module):
             
         x_main = x[:, :, self.main_indices]
         
-        # Polygenic convolutions
         f_main = self.pool1(self.conv1(x_main))
         f_main = self.pool2(self.conv2(f_main))
         f_main = self.pool3(self.conv3(f_main))
@@ -302,7 +267,6 @@ def create_model(
     feature_names=None,
     **kwargs
 ):
-    """Factory function to instantiate PKDP v0.1.5 model"""
     c1 = out_channels1 or (getattr(opts, 'main_channels', [64])[0] if hasattr(opts, 'main_channels') and opts.main_channels else 64)
     c2 = out_channels2 or (getattr(opts, 'main_channels', [64, 32])[1] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 1 else 32)
     c3 = out_channels3 or (getattr(opts, 'main_channels', [64, 32, 32])[2] if hasattr(opts, 'main_channels') and len(opts.main_channels) > 2 else 32)
@@ -338,7 +302,6 @@ def create_model(
 
 
 def create_optimizer(model, learning_rate, optimizer_type='AdamW'):
-    """Create optimizer for PKDP v0.1.5"""
     if optimizer_type == 'SGD':
         return optim.SGD(model.parameters(), lr=learning_rate)
     elif optimizer_type == 'Adam':
@@ -351,5 +314,4 @@ def create_optimizer(model, learning_rate, optimizer_type='AdamW'):
 
 
 def create_loss_function():
-    """Create loss function (MSE)"""
     return nn.MSELoss()

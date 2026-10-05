@@ -108,8 +108,11 @@ def set_random_seed(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 def visualize_training_progress(train_losses, test_losses, output_path, prefix):
     plt.figure(figsize=(12, 7), dpi=300)
@@ -209,6 +212,10 @@ def create_model_with_config(input_length, opts, feature_names, device):
 
 
 def optimize_hyperparameters(X_train, y_train, opts, device, feature_names, n_folds=5):
+    if getattr(opts, 'lr', None) is not None:
+        log(INFO, f"Using explicitly specified learning rate: {opts.lr} (skipping Optuna)")
+        return {'lr': opts.lr}
+    
     if getattr(opts, 'optuna_trials', 50) <= 0:
         log(INFO, "Optuna trials <= 0, skipping hyperparameter tuning and using default lr=0.001")
         return {'lr': 0.001}
@@ -276,53 +283,85 @@ def run_train(opts, X_train, y_train, device, feature_names, cv_folds=10):
     
     log(INFO, f"Best hyperparameters: {best_params}")
 
+    # Ensure deterministic training start
+    if opts.seed is not None:
+        set_random_seed(opts.seed)
+
     if cv_folds == 0:
+        log(INFO, "Training single model with 80/20 train/validation split")
+        if len(X_train) >= 5:
+            X_train_split, X_val_split, y_train_split, y_val_split = train_test_split(
+                X_train, y_train, test_size=0.2, random_state=opts.seed
+            )
+        else:
+            X_train_split, X_val_split, y_train_split, y_val_split = X_train, X_train, y_train, y_train
+
         model = create_model_with_config(X_train.shape[2], opts, feature_names, device)
         log(INFO, f"Model architecture:\n{model}")
 
         optimizer = create_optimizer(model, best_params['lr'], opts.optimizer)
         loss_fn = create_loss_function()
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
-        train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=opts.batch_size, shuffle=True)
+        train_loader = DataLoader(TensorDataset(X_train_split, y_train_split), batch_size=opts.batch_size, shuffle=True)
+        val_loader = DataLoader(TensorDataset(X_val_split, y_val_split), batch_size=opts.batch_size, shuffle=False)
 
         early_stopping = EarlyStopping(patience=10) if opts.early_stop else None
+        best_val_loss = float('inf')
+        best_val_corr = -float('inf')
         best_train_loss = float('inf')
         best_train_corr = -float('inf')
         best_state_dict = None
         train_losses = []
+        val_losses = []
 
         for epoch in range(opts.epochs):
             train_loss = train_epoch(model, train_loader, optimizer, loss_fn, device)
+            val_loss = evaluate_epoch(model, val_loader, loss_fn, device)
+
             with torch.no_grad():
-                y_train_pred = model(X_train.to(device)).cpu().numpy()
-                train_corr = compute_pearson_correlation(y_train.numpy(), y_train_pred)
+                val_pred = model(X_val_split.to(device)).cpu().numpy()
+                val_corr = compute_pearson_correlation(y_val_split.numpy(), val_pred)
+
+                train_pred = model(X_train_split.to(device)).cpu().numpy()
+                train_corr = compute_pearson_correlation(y_train_split.numpy(), train_pred)
 
             train_losses.append(train_loss)
+            val_losses.append(val_loss)
 
-            if train_corr > best_train_corr:
+            if val_corr > best_val_corr:
+                best_val_corr = val_corr
+                best_val_loss = val_loss
                 best_train_corr = train_corr
                 best_train_loss = train_loss
-                best_state_dict = model.state_dict()
+                best_state_dict = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
 
-            scheduler.step(train_loss)
+            scheduler.step(val_loss)
             if early_stopping:
-                early_stopping(train_loss)
+                early_stopping(val_loss)
                 if early_stopping.stop:
                     log(INFO, f"Early stopping at epoch {epoch + 1}")
                     break
 
             log(INFO, f"Epoch {epoch + 1}: Train Corr={train_corr:.4f}, Train Loss={train_loss:.4f}, "
-                      f"Best Corr={best_train_corr:.4f}")
+                      f"Val Corr={val_corr:.4f}, Val Loss={val_loss:.4f}, Best Val Corr={best_val_corr:.4f}")
 
-        model.load_state_dict(best_state_dict)
+        if best_state_dict is not None:
+            model.load_state_dict(best_state_dict)
+        log(INFO, f"Single model best validation correlation: {best_val_corr:.4f}")
         
     else:
         log(INFO, f"Using {cv_folds}-fold cross-validation for model training")
         kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=opts.seed)
         best_fold_corr = -float('inf')
+        best_fold_idx = 0
         best_model_state = None
         best_train_corr = -float('inf')
         best_train_loss = float('inf')
+
+        fold_val_corrs = []
+        fold_val_losses = []
+        fold_train_corrs = []
+        fold_train_losses = []
         
         for fold, (train_idx, val_idx) in enumerate(kfold.split(X_train)):
             X_train_fold = X_train[train_idx]
@@ -357,7 +396,6 @@ def run_train(opts, X_train, y_train, device, feature_names, cv_folds=10):
                     train_pred = model(X_train_fold.to(device)).cpu().numpy()
                     train_corr = compute_pearson_correlation(y_train_fold.numpy(), train_pred)
                 
-                # Log metrics for each epoch
                 log(INFO, f"Fold {fold + 1}, Epoch {epoch + 1}: Train Corr={train_corr:.4f}, Train Loss={train_loss:.4f}, Val Corr={val_corr:.4f}, Val Loss={val_loss:.4f}")
                 
                 if val_corr > fold_best_val_corr:
@@ -365,7 +403,7 @@ def run_train(opts, X_train, y_train, device, feature_names, cv_folds=10):
                     fold_best_train_corr = train_corr
                     fold_best_train_loss = train_loss
                     fold_best_val_loss = val_loss
-                    fold_best_state = model.state_dict().copy()
+                    fold_best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
                 
                 scheduler.step(val_loss)
                 early_stopping(val_loss)
@@ -373,8 +411,14 @@ def run_train(opts, X_train, y_train, device, feature_names, cv_folds=10):
                     log(INFO, f"Fold {fold + 1}: Early stopping at epoch {epoch + 1}")
                     break
             
+            fold_val_corrs.append(fold_best_val_corr)
+            fold_val_losses.append(fold_best_val_loss)
+            fold_train_corrs.append(fold_best_train_corr)
+            fold_train_losses.append(fold_best_train_loss)
+
             if fold_best_val_corr > best_fold_corr:
                 best_fold_corr = fold_best_val_corr
+                best_fold_idx = fold
                 best_model_state = fold_best_state
                 best_train_corr = fold_best_train_corr
                 best_train_loss = fold_best_train_loss
@@ -385,21 +429,49 @@ def run_train(opts, X_train, y_train, device, feature_names, cv_folds=10):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         
+        mean_val_corr = float(np.mean(fold_val_corrs))
+        std_val_corr = float(np.std(fold_val_corrs))
+        mean_val_loss = float(np.mean(fold_val_losses))
+        std_val_loss = float(np.std(fold_val_losses))
+        mean_train_corr = float(np.mean(fold_train_corrs))
+        std_train_corr = float(np.std(fold_train_corrs))
+        mean_train_loss = float(np.mean(fold_train_losses))
+        std_train_loss = float(np.std(fold_train_losses))
+
+        log(INFO, "======================================================================")
+        log(INFO, f"Cross-Validation Summary ({cv_folds} folds):")
+        log(INFO, f"  Validation Correlation : {mean_val_corr:.4f} ± {std_val_corr:.4f}")
+        log(INFO, f"  Validation Loss        : {mean_val_loss:.4f} ± {std_val_loss:.4f}")
+        log(INFO, f"  Training Correlation   : {mean_train_corr:.4f} ± {std_train_corr:.4f}")
+        log(INFO, f"  Training Loss          : {mean_train_loss:.4f} ± {std_train_loss:.4f}")
+        log(INFO, f"  Selected Model for Save: Fold {best_fold_idx + 1} (Val Corr: {best_fold_corr:.4f})")
+        log(INFO, "======================================================================")
+
         model = create_model_with_config(X_train.shape[2], opts, feature_names, device)
         model.load_state_dict(best_model_state)
-        log(INFO, f"Best fold validation correlation: {best_fold_corr:.4f}")
 
     model_save_path = os.path.join(opts.output_path, f"{prefix}_best_model.pth")
     torch.save(model, model_save_path)
 
-    with torch.no_grad():
-        y_train_pred = model(X_train.to(device)).cpu().numpy()
-        train_corr = compute_pearson_correlation(y_train.cpu().numpy(), y_train_pred)
-        results = {'time': int(time.time() - time_start), 'train_corr': best_train_corr, 'train_loss': best_train_loss, 'prefix': prefix}
-        
-    #     visualize_training_results(y_train.cpu().numpy(), y_train_pred, opts.output_path, prefix)
+    results = {
+        'time': int(time.time() - time_start),
+        'train_corr': best_train_corr,
+        'train_loss': best_train_loss,
+        'prefix': prefix
+    }
+    if cv_folds > 0:
+        results['cv_folds'] = cv_folds
+        results['cv_mean_val_corr'] = mean_val_corr
+        results['cv_std_val_corr'] = std_val_corr
+        results['cv_mean_val_loss'] = mean_val_loss
+        results['cv_std_val_loss'] = std_val_loss
+        results['cv_best_val_corr'] = float(best_fold_corr)
+        results['selected_fold'] = best_fold_idx + 1
+    else:
+        results['val_corr'] = float(best_val_corr)
+        results['val_loss'] = float(best_val_loss)
 
-    # pd.DataFrame([results]).to_csv(os.path.join(opts.output_path, f"{prefix}_results.csv"), index=False)
+    pd.DataFrame([results]).to_csv(os.path.join(opts.output_path, f"{prefix}_results.csv"), index=False)
 
     log(INFO, f"Best training correlation: {best_train_corr:.4f}")
     log(INFO, f"Model saved to {model_save_path}")

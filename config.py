@@ -20,6 +20,7 @@ def _add_train_arguments(parser):
     optional.add_argument('--optuna_trials', type=int, default=50, help='Number of Optuna trials for hyperparameter tuning')
     optional.add_argument('--device', type=str, default='cuda', help='Device for training (e.g., "cpu", "cuda")')
     optional.add_argument('--optimizer', type=str, default='AdamW', choices=['Adam', 'SGD', 'AdamW'], help='Optimizer type')
+    optional.add_argument('--lr', type=float, default=None, help='Initial learning rate (skips Optuna hyperparameter search if specified)')
     optional.add_argument('--early_stop', action='store_true', default=True, help='Enable early stopping')
     optional.add_argument('--cv_folds', type=int, default=0, 
                           help='Number of cross-validation folds for model training (0-10, 0=disable CV, default=0)')
